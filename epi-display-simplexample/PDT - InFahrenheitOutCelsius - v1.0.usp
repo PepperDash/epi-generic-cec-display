@@ -1,0 +1,131 @@
+/*
+Dealer Name: PepperDash Technology Copyright 2011
+System Name:
+System Number: v1.0
+Programmer: Justin Gordon
+Comments:
+
+LEGAL DISCLAIMER:
+
+The material in which this notice appears is the property of PepperDash Technology Corp., 
+which claims copyright under the laws of the United States of America in the entire body 
+of material and in all parts thereof, regardless of the use to which it is being put.  
+Any use, in whole or in part, of this material by another party without the express written 
+permission of PepperDash Technology Corp. is prohibited.  PepperDash Technology Corp. 
+reserves all rights under applicable laws.
+*/
+
+/******************Compiler Directives*************************/  
+// #ENABLE_DYNAMIC
+#SYMBOL_NAME "PDT - InFahrenheitOutCelsius - v1.0"
+// #HINT ""
+// #DEFINE_CONSTANT
+// #CATEGORY "" 
+// #PRINT_TO_TRACE
+// #DIGITAL_EXPAND 
+// #ANALOG_SERIAL_EXPAND 
+// #OUTPUT_SHIFT 
+// #HELP_PDF_FILE ""
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+//#ENABLE_TRACE
+#ENCODING_INHERIT_FROM_PARENT
+
+
+
+#HELP_BEGIN
+
+#HELP_END
+
+
+/************************* Inputs *********************************/  
+
+Analog_Input 
+	InDegFahrenheitValue,
+	_SKIP_,
+	InDegCelsiusValue;
+
+String_Input 
+	_SKIP_,
+	InDegFahrenheit[50];
+	
+Analog_Output 
+	OutDegFahrenheit_ANA,	
+	OutDegCelsius_ANA;
+	
+String_Output 
+	_SKIP_,
+	OutDegCelsius_STR,
+	OutDegFahrenheit_STR;
+
+
+
+/************************* Sockets ********************************/
+            
+
+
+/************************* Parameters *****************************/
+             
+
+
+/************************* Parameter Properties *******************/
+
+/*
+#BEGIN_PARAMETER_PROPERTIES parameter_variable, parameter_variable, ...
+   // propValidUnits = // unitString or unitDecimal|unitHex|unitPercent|unitCharacter|unitTime|unitTicks;
+   // propDefaultUnit = // unitString, unitDecimal, unitHex, unitPercent, unitCharacter, unitTime or unitTicks;
+   // propBounds = lower_bound , upper_bound;
+   // propDefaultValue = ;  // or, propDefaultValue = "";
+   // propList = // { "value" , "label" } , { "value" , "label" } , ... ;
+   // propShortDescription = "status_bar_hint_text";
+   // #BEGIN_PROP_FULL_DESCRIPTION  line_1...  line_2...  line_n  #END_PROP_FULL_DESCRIPTION
+   // #BEGIN_PROP_NOTES line_1...  line_2...  line_n  #END_PROP_NOTES
+#END_PARAMETER_PROPERTIES
+*/
+
+/************************ Stuctures *******************************/
+
+
+
+/********************* Global Variables ***************************/
+
+                      
+
+/************************ Functions *******************************/
+
+
+
+/************************** Events ********************************/
+Change InDegCelsiusValue {
+	signed_integer siFar;
+	
+	siFar = (InDegCelsiusValue * 9/5) + 32;
+	MakeString(OutDegFahrenheit_STR,"%d", siFar);
+}
+
+Change InDegFahrenheitValue {
+ 	signed_integer siCel;
+	
+	siCel = ((InDegFahrenheitValue - 32)*5)/9;
+	OutDegFahrenheit_ANA = InDegFahrenheitValue;
+	OutDegCelsius_ANA = siCel;
+	makestring(OutDegCelsius_STR, "%d", siCel);
+}
+
+Change InDegFahrenheit {
+	signed_integer siCel;
+	
+	siCel = ((atoi(InDegFahrenheit) - 32)*5)/9;
+	OutDegFahrenheit_ANA = atoi(InDegFahrenheit);
+	OutDegCelsius_ANA = siCel;
+	makestring(OutDegCelsius_STR, "%d", siCel);
+}  
+
+/*************************** Main *********************************/  
+
+Function Main()
+{
+
+}
+
+
