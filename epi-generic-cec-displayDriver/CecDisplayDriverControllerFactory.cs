@@ -10,7 +10,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         public CecDisplayDriverControllerFactory()
         {
 			MinimumEssentialsFrameworkVersion = "1.6.7";
-            TypeNames = new List<string> {"samsungMdcPlugin"};
+            TypeNames = new List<string> {"GenericCecDisplay"};
         }
 
         #region Overrides of EssentialsDeviceFactory<SamsungMdcDisplayController>
