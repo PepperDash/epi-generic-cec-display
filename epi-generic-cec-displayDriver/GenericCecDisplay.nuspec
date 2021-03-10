@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package >
   <metadata>
-    <id>PepperDash.Essentials.Plugin.GernicCecDisplayDriver</id>
+    <id>PepperDash.Essentials.Plugin.GenericCecDisplayDriver</id>
     <version>2.0.2</version>
     <title>DynamicEisc Essentials Plugin</title>
     <authors>PepperDash Technologies</authors>
