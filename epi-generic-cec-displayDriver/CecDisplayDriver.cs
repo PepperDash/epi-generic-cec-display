@@ -153,48 +153,24 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         #region Command Constants
 
         /// <summary>
-        /// Header byte
-        /// </summary>
-        // public const byte Header = 0x40;
-
-        /// <summary>
 		/// QUERY_POWER_OSC	\x40\x8F
         /// </summary>
 		public const string PowerStatusCmd = "\x40\x8F";
 
-        /// Display status control (Cmd: 0x0D) pdf page 34
-        /// Gets the display status, status includes: val1=Lamp, val2=Temperature, val3=Bright_Sensor, val4=No_Sync, val5=Current_Temp, val6=Fan
-        /// </summary>
-        public const byte DisplayStatusControlCmd = 0x0D;
-
         /// <summary>
-        /// Power control (Cmd: 0x11) pdf page 42
         /// Gets/sets the power state
         /// </summary>
 		public const string PowerControlToggle = "\x40\x44\x6D";
 
         /// <summary>
-        /// Power control data1 - on 
+        /// Power control on 
         /// </summary>
         public const string PowerControlOn = "\x40\x44\x6D";
 
         /// <summary>
-        /// Power control data1 - off
+        /// Power control off
         /// </summary>
 		public const string PowerControlOff = "\x40\x36";
-
-        /// <summary>
-        /// Volume level control (Cmd: 0x12) pdf page 44
-        /// Gets/sets the volume level
-        /// Level range 0d - 100d (0x00 - 0x64)
-        /// </summary>
-        public const byte VolumeLevelControlCmd = 0x12;
-
-        /// <summary>
-        /// Volume mute control (Cmd: 0x13) pdf page 45
-        /// Gets/sets the volume mute state
-        /// </summary>
-        public const byte VolumeMuteControlCmd = 0x13;
 
         /// <summary>
         /// Volume mute control data1 - on 
@@ -206,129 +182,49 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// </summary>
         public const byte VolumeMuteControlOff = 0x00;
 
-        /// <summary>
-        /// Input source control (Cmd: 0x14) pdf page 46
-        /// Gets/sets the input state
-        /// </summary>
-        public const byte InputControlCmd = 0x14;
 
-        /// <summary>
-        /// Input source control data1 - S-Video1
-        /// </summary>
-        public const byte InputControlSvideo1 = 0x04;
+		/*https://groups.io/g/crestron/topic/35798610
+		 * https://support.crestron.com/app/answers/detail/a_id/5633/kw/CEC
+		 * HDMI 1 \x4F\x82\x10\x00 tested
+				HDMI 2 \x4F\x82\x20\x00 tested
+				HDMI 3 \x4F\x82\x30\x00 tested
+				HDMI 4 \x4F\x82\x40\x00 tested
+				HDMI 5 \x4F\x82\x50\x00 not tested
+				HDMI 6 \x4F\x82\x60\x00 not tested
+		 */
 
-        /// <summary>
-        /// Input source control data1 - Component1
-        /// </summary>
-        public const byte InputControlComponent1 = 0x08;
 
-        /// <summary>
-        /// Input source control data1 - AV1
-        /// </summary>
-        public const byte InputControlAv1 = 0x0C;
 
-        /// <summary>
-        /// Input source control data1 - AV2
-        /// </summary>
-        public const byte InputControlAv2 = 0x0D;
 
-        /// <summary>
-        /// Input source control data1 - Scart1
-        /// </summary>
-        public const byte InputControlScart1 = 0x0E;
-
-        /// <summary>
-        /// Input source control data1 - DVI1
-        /// </summary>
-        public const byte InputControlDvi1 = 0x18;
-
-        /// <summary>
-        /// Input source control data1 - PC1
-        /// </summary>
-        public const byte InputControlPc1 = 0x14;
-
-        /// <summary>
-        /// Input source control data1 - BNC1
-        /// </summary>
-        public const byte InputControlBnc1 = 0x1E;
-
-        /// <summary>
-        /// Input source control data1 - DVI Video1
-        /// </summary>
-        public const byte InputControlDviVideo1 = 0x1F;
 
         /// <summary>
         /// Input source control data1 - HDMI1
         /// </summary>
-        public const byte InputControlHdmi1 = 0x21;
-
-        /// <summary>
-        /// Input source control data1 - HDMI1 PC
-        /// </summary>
-        public const byte InputControlHdmi1Pc = 0x22;
+        public const string InputControlHdmi1 = "\x4F\x82\x10\x00";
 
         /// <summary>
         /// Input source control data1 - HDMI2
         /// </summary>
-        public const byte InputControlHdmi2 = 0x23;
-
-        /// <summary>
-        /// Input source control data1 - HDMI2 PC
-        /// </summary>
-        public const byte InputControlHdmi2Pc = 0x24;
-
-        /// <summary>
-        /// Input source control data1 - DisplayPort1
-        /// </summary>
-        public const byte InputControlDisplayPort1 = 0x25;
-
-        /// <summary>
-        /// Input source control data1 - DisplayPort2
-        /// </summary>
-        public const byte InputControlDisplayPort2 = 0x26;
-
-        /// <summary>
-        /// Input source control data1 - DisplayPort3
-        /// </summary>
-        public const byte InputControlDisplayPort3 = 0x27;
+		public const string InputControlHdmi2 = "\x4F\x82\x20\x00";
 
         /// <summary>
         /// Input source control data1 - HDMI3
         /// </summary>
-        public const byte InputControlHdmi3 = 0x31;
-
-        /// <summary>
-        /// Input source control data1 - HDMI3 PC
-        /// </summary>
-        public const byte InputControlHdmi3Pc = 0x32;
+		public const string InputControlHdmi3 = "\x4F\x82\x30\x00";
 
         /// <summary>
         /// Input source control data1 - HDMI4
         /// </summary>
-        public const byte InputControlHdmi4 = 0x33;
-
-        /// <summary>
-        /// Input source control data1 - HDMI4 PC
-        /// </summary>
-        public const byte InputControlHdmi4Pc = 0x34;
+		public const string InputControlHdmi4 = "\x4F\x82\x40\x00";
 
         /// <summary>
         /// Input source control data1 - TV1
         /// </summary>
         public const byte InputControlTv1 = 0x40;
 
-        /// <summary>
-        /// Input source control data1 - HDBase-T1
-        /// </summary>
-        public const byte InputControlHdBaseT1 = 0x55;
 
 
 
-        /// <summary>
-        /// Volume increment/decrement control (Cmd: 0x62) pdf page 122
-        /// Set only, increments/decrements the volume level
-        /// </summary>
-        public const byte VolumeAdjustCmd = 0x62;
 
         /// <summary>
         /// Volume increment/decrement control data1 - up
@@ -400,21 +296,17 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         public BoolFeedback MuteFeedback { get; private set; }
 
         /// <summary>
-        /// Mute off (Cmd: 0x13) pdf page 45
-        /// Set: [Header=0xAA][Cmd=0x13][ID][DATA_LEN=0x01][DATA-1=0x00][CS=0x00]
         /// </summary>
         public void MuteOff()
         {
-            SendBytes(new byte[] {VolumeMuteControlCmd});
+
         }
 
         /// <summary>
-        /// Mute on (Cmd: 0x13) pdf page 45
-        /// Set: [Header=0xAA][Cmd=0x13][ID][DATA_LEN=0x01][DATA-1=0x01][CS=0x00]
         /// </summary>
         public void MuteOn()
         {
-            SendBytes(new byte[] {VolumeMuteControlCmd});
+
         }
 
         /// <summary>
@@ -586,9 +478,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// </summary>
         /// <param name="port"></param>
         /// <param name="fbMatch"></param>
-        private void AddRoutingInputPort(RoutingInputPort port, byte fbMatch)
+        private void AddRoutingInputPort(RoutingInputPort port)
         {
-            port.FeedbackMatchObject = fbMatch;
             InputPorts.Add(port);
         }
 
@@ -634,35 +525,19 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
             AddRoutingInputPort(
                 new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this), InputControlHdmi1);
+                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this));
 
             AddRoutingInputPort(
                 new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this), InputControlHdmi2);
+                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this));
 
             AddRoutingInputPort(
                 new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this), InputControlHdmi3);
+                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this));
 
             AddRoutingInputPort(
                 new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this), InputControlHdmi4);
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.DisplayPortIn1,
-                    eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort1), this),
-                InputControlDisplayPort1);
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.DisplayPortIn2,
-                    eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.DisplayPort, new Action(InputDisplayPort2), this),
-                InputControlDisplayPort2);
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.DviIn, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Dvi, new Action(InputDvi1), this), InputControlDvi1);
+                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this));
 
 
             for (var i = 0; i < InputPorts.Count; i++)
@@ -840,55 +715,13 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             
         }
 
-        /// <summary>
-        /// Formats an outgoing message. 
-        /// Third byte will be replaced with ID and last byte will be replaced with calculated checksum.
-        /// All bytes to make a valid message must be included and can be represented with 0x00. 
-        /// Get ex. [HEADER][CMD][ID][DATA_LEN][CS]
-        /// Set ex. [HEADER][CMD][ID][DATA_LEN][DATA-1...DATA-N][CS]
-        /// </summary>
-        /// <param name="b">byte array</param>
-        private void SendBytes(byte[] b)
-        {
-            // Command structure 
-            // [HEADER][CMD][ID][DATA_LEN][DATA-1]....[DATA-N][CHK_SUM]
-            // PowerOn ex: 0xAA,0x11,0x01,0x01,0x01,0x01
-            if (_lastCommandSentWasVolume) // If the last command sent was volume
-            {
-                if (b[1] != 0x12) // Check if this command is volume, and if not, delay this command 
-                {
-                    CrestronEnvironment.Sleep(100);
-                }
-            }
-
-            b[2] = Id;
-            // append checksum by adding all bytes, except last which should be 00
-            var checksum = 0;
-            for (var i = 1; i < b.Length - 1; i++) // add 2nd through 2nd-to-last bytes
-            {
-                checksum += b[i];
-            }
-            checksum = checksum & 0x000000FF; // mask off MSBs
-            b[b.Length - 1] = (byte) checksum;
-
-            _lastCommandSentWasVolume = b[1] == 0x12;
-
-            Communication.SendBytes(b);
-        }
 
         /// <summary>
-        /// Status control (Cmd: 0x00) pdf page 26
-        /// Get: [HEADER=0xAA][Cmd=0x00][ID][DATA_LEN=0x00][CS=0x00]
         /// </summary>
         public void StatusGet()
         {
-            //SendBytes(new byte[] { Header, StatusControlCmd, 0x00, 0x00, StatusControlGet, 0x00 });
-            SendBytes(new byte[] {0x00, 0x00, 0x00, 0x00});
-            /*
-            PowerGet();
-            _pollRing = null;
-            _pollRing = new CTimer(o => InputGet(), null, 1000);
-            */
+			   Communication.SendText("\x40\x8F");
+            
         }
 
         /// <summary>
@@ -964,8 +797,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
 
         /// <summary>		
-        /// Power toggle (Cmd: 0x11) pdf page 42 
-        /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01||0x00][CS=0x00]
+
         /// </summary>
         public override void PowerToggle()
         {
@@ -980,67 +812,36 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         }
 
         /// <summary>
-        /// Input HDMI 1 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x21][CS=0x00]
-        /// </summary>
         public void InputHdmi1()
         {
-            SendBytes(new byte[] {InputControlCmd});
+            Communication.SendText(InputControlHdmi1);
         }
 
         /// <summary>
-        /// Input HDMI 2 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x23][CS=0x00]
+
         /// </summary>
         public void InputHdmi2()
         {
-            SendBytes(new byte[] {InputControlCmd});
+			Communication.SendText(InputControlHdmi2);
         }
 
         /// <summary>
-        /// Input HDMI 3 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x31][CS=0x00]
+
         /// </summary>
         public void InputHdmi3()
         {
-            SendBytes(new byte[] {InputControlCmd});
+			Communication.SendText(InputControlHdmi3);
         }
 
         /// <summary>
-        /// Input HDMI 4 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x33][CS=0x00]
+
         /// </summary>
         public void InputHdmi4()
         {
-            SendBytes(new byte[] {InputControlCmd});
+			Communication.SendText(InputControlHdmi4);
         }
 
-        /// <summary>
-        /// Input DisplayPort 1 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x25][CS=0x00]
-        /// </summary>
-        public void InputDisplayPort1()
-        {
-            SendBytes(new byte[] {InputControlCmd});
-        }
-
-        /// <summary>
-        /// Input DisplayPort 2 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x26][CS=0x00]
-        /// </summary>
-        public void InputDisplayPort2()
-        {
-            SendBytes(new byte[] {InputControlCmd});
-        }
-
-        /// <summary>
-        /// Input DVI 1 (Cmd: 0x14) pdf page 426
-        /// Set: [HEADER=0xAA][Cmd=0x14][ID][DATA_LEN=0x01][DATA-1=0x18][CS=0x00]
-        /// </summary>
-        public void InputDvi1()
-        {
-            SendBytes(new byte[] {InputControlCmd});
-        }
+ 
 
 
 
