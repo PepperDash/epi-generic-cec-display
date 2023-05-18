@@ -1,106 +1,42 @@
-# PepperDash Plugin - Display - Samsung MDC
+# PepperDash Plugin - Display - CEC
 
-This is a plugin repo for Samsung MDC displays and adds features needed that are not currently part of the Essentials Samsung MDC implementation. To use the plugin follow the steps below.
-
-1. Clone the repo
-   - References are managed by nuget. To install the correct references, enter the command below:
-     `nuget install .\packages.config -ExcludeVersion -OutputDirectory .\packages`
-   - Check the slash direction: if installing from Git Bash, the slashes should be `/` instead of `\`
-2. Copy the \*.cplz to th plugin folder created by Essentials
-   - ex. \USER\program[X]\plugins\*.cplz
-3. Update the Essentials configuration file to include the display objects and display bridge (see examples below)
-   - The plugin "type" is set C# to "samsungmdcplugin"
-4. Load the Essentials configuration file to the program folder created by Essentials
-   - ex. \USER\program[x]\*configurationFile\*.json)
-5. Restart Essentials to load the plugin
+This is a plugin repo for Display CEC control
 
 ## Device Specifc Information
 
-This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control document, Ver. 14.4, 2018-4-4.
+-
 
-### RS232 Specification
-
-|              |      |
-| ------------ | ---- |
-| Baudrate     | 9600 |
-| Data Bits    | 8    |
-| Parity       | None |
-| Stop Bits    | 1    |
-| Flow Control | None |
-
-### Network Specification
-
-|            |              |
-| ---------- | ------------ |
-| Default IP | 192.168.0.10 |
-| Port       | 1515         |
 
 ## Example Configuration Object
 
-### Display Object using RS-232
-
-```
+```JSON
 {
-	"key": "Display01",
+	"key": "display1",
 	"uid": 1,
-	"name": "Front Display",
-	"type": "samsungmdcplugin",
-	"group": "display",
+	"name": "Display 1",
+	"type": "genericCecDisplay",
+	"group": "plugin",
 	"properties": {
-		"id": "01",
+		"id": "00",
 		"control": {
-			"method": "com",
-			"controlPortDevKey": "processor",
+			"method": "Cec",
+			"controlPortDevKey": "dm1-rx1",
 			"controlPortNumber": 1,
-			"comParams": {
-				"hardwareHandshake": "None",
-				"parity": "None",
-				"protocol": "RS232",
-				"baudRate": 9600,
-				"dataBits": 8,
-				"softwareHandshake": "None",
-				"stopBits": 1
-			}
+			"ControlPortName": "hdmiout"
 		}
 	}
-},
-```
-
-### Display Object using TCP/IP
-
-```
-{
-	"key": "Display01",
-	"uid": 1,
-	"name": "Front Display",
-	"type": "samsungmdcplugin",
-	"group": "display",
-	"properties": {
-		"id": "01",
-		"control": {
-			"method": "tcpIp",
-			"tcpSshProperties": {
-				"address": "10.0.0.200",
-				"port": 1515,
-				"username": "",
-				"password": "",
-				"autoReconnect": true,
-				"autoReconnectIntervalMs": 10000
-			}
-		}
-	}
-},
+}
 ```
 
 ### Display Plugin Bridge Object
 
 ```
 {
-	"key": "eiscBridge-Displays",
+	"key": "bridge",
 	"uid": 4,
 	"name": "eiscBridge Displays",
 	"group": "api",
-	"type": "eiscApi",
+	"type": "eiscApiAdvanced",
 	"properties": {
 		"control": {
 			"method": "ipidTcp",
@@ -112,16 +48,8 @@ This plugin was built using the Samsung SEC-VD-DSW Multiple Display Control docu
 		},
 		"devices": [
 			{
-				"deviceKey": "Display01",
+				"deviceKey": "display1",
 				"joinStart": 1
-			},
-			{
-				"deviceKey": "Display02",
-				"joinStart": 51
-			},
-			{
-				"deviceKey": "Display03",
-				"joinStart": 101
 			}
 		]
 	}
