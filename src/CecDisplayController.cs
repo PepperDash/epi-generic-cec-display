@@ -1,39 +1,31 @@
-﻿// For Basic SIMPL# Classes
-// For Basic SIMPL#Pro classes
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
 using Newtonsoft.Json;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
-using PepperDash.Essentials.Core.DeviceInfo;
 using PepperDash.Essentials.Core.Routing;
-using Feedback = PepperDash.Essentials.Core.Feedback;
+using PepperDash.Essentials.Devices.Displays;
 
 namespace PepperDash.Plugin.Display.CecDisplayDriver
 {
-    public class CecDisplayDriverDisplayController : TwoWayDisplayBase, IBasicVolumeControls, ICommunicationMonitor,
-        IBridgeAdvanced
+	public class CecDisplayController : TwoWayDisplayBase, IBridgeAdvanced, ICommunicationMonitor,
+		IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4, IBasicVolumeControls
+        
     {
         public const int InputPowerOn = 101;
         public const int InputPowerOff = 102;
         public static List<string> InputKeys = new List<string>();
-        private readonly CecDisplayDriverPropertiesConfig _config;
-        private readonly uint _coolingTimeMs;
 
-        private readonly int _lowerLimit;
-        private readonly long _pollIntervalMs;
-        private readonly int _upperLimit;
-        private readonly uint _warmingTimeMs;
-
+		private readonly long _pollIntervalMs;
+		private readonly uint _warmingTimeMs;
+		private readonly uint _coolingTimeMs;
+		
 
         public List<BoolFeedback> InputFeedback;
-
         
         private RoutingInputPort _currentInputPort;
         
@@ -45,25 +37,23 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 		{
 			get
 			{
-				return _CurrentInputNumber;
+				return _currentInputNumber;
 			}
 			private set
 			{
-				_CurrentInputNumber = value;
+				_currentInputNumber = value;
 				InputNumberFeedback.FireUpdate();
 				UpdateBooleanFeedback();
 			}
 		}
-		private int _CurrentInputNumber;
+		private int _currentInputNumber;
 
         private bool _isCoolingDown;
         private bool _isMuted;
-        private bool _isPoweringOnIgnorePowerFb;
-        private bool _isWarmingUp;
+		private bool _isWarmingUp;
         private bool _lastCommandSentWasVolume;
         private int _lastVolumeSent;
-        private CCriticalSection _parseLock = new CCriticalSection();
-        private bool _powerIsOn;
+		private bool _powerIsOn;
 
 
         /// <summary>
@@ -74,22 +64,19 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <param name="key"></param>
         /// <param name="comms"></param>
         //public SamsungMdcDisplayController(string key, string name, DeviceConfig config) : base(key, name)
-        public CecDisplayDriverDisplayController(string key, string name, CecDisplayDriverPropertiesConfig config,
+        public CecDisplayController(string key, string name, CecDisplayPropertiesConfig config,
             IBasicCommunication comms)
             : base(key, name)
         {
-            Communication = comms;
+	        Communication = comms;
             Communication.BytesReceived += Communication_BytesReceived;
-            _config = config;
+            var config1 = config;
 
-            Id = _config.Id == null ? (byte) 0x01 : Convert.ToByte(_config.Id, 16);
+            Id = config1.Id == null ? (byte) 0x01 : Convert.ToByte(config1.Id, 16);
 
-
-            _upperLimit = _config.volumeUpperLimit;
-            _lowerLimit = _config.volumeLowerLimit;
-            _pollIntervalMs = _config.pollIntervalMs;
-            _coolingTimeMs = _config.coolingTimeMs;
-            _warmingTimeMs = _config.warmingTimeMs;
+	        _pollIntervalMs = config1.PollIntervalMs;
+            _coolingTimeMs = config1.CoolingTimeMs;
+            _warmingTimeMs = config1.WarmingTimeMs;
 
             Init();
         }
@@ -135,12 +122,12 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <summary>
         /// 
         /// </summary>
-        public override FeedbackCollection<Feedback> Feedbacks
+		public override FeedbackCollection<Essentials.Core.Feedback> Feedbacks
         {
             get
             {
                 var list = base.Feedbacks;
-                list.AddRange(new List<Feedback>
+				list.AddRange(new List<Essentials.Core.Feedback>
                 {
                     VolumeLevelFeedback,
                     MuteFeedback,
@@ -152,7 +139,18 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
         #region Command Constants
 
-        /// <summary>
+		/* https://groups.io/g/crestron/topic/35798610
+		 * https://support.crestron.com/app/answers/detail/a_id/5633/kw/CEC
+		 * https://community.crestron.com/s/article/id-5633
+		 *	HDMI 1 \x4F\x82\x10\x00 tested
+		 *	HDMI 2 \x4F\x82\x20\x00 tested
+		 *	HDMI 3 \x4F\x82\x30\x00 tested
+		 *	HDMI 4 \x4F\x82\x40\x00 tested
+		 *	HDMI 5 \x4F\x82\x50\x00 not tested
+		 *	HDMI 6 \x4F\x82\x60\x00 not tested
+		 */
+
+		/// <summary>
 		/// QUERY_POWER_OSC	\x40\x8F
         /// </summary>
 		public const string PowerStatusCmd = "\x40\x8F";
@@ -173,117 +171,58 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 		public const string PowerControlOff = "\x40\x36";
 
         /// <summary>
-        /// Volume mute control data1 - on 
-        /// </summary>
-        public const byte VolumeMuteControlOn = 0x01;
-
-        /// <summary>
-        /// Volume mute control data1 - off
-        /// </summary>
-        public const byte VolumeMuteControlOff = 0x00;
-
-
-		/*https://groups.io/g/crestron/topic/35798610
-		 * https://support.crestron.com/app/answers/detail/a_id/5633/kw/CEC
-		 * HDMI 1 \x4F\x82\x10\x00 tested
-				HDMI 2 \x4F\x82\x20\x00 tested
-				HDMI 3 \x4F\x82\x30\x00 tested
-				HDMI 4 \x4F\x82\x40\x00 tested
-				HDMI 5 \x4F\x82\x50\x00 not tested
-				HDMI 6 \x4F\x82\x60\x00 not tested
-		 */
-
-
-
-
-
-        /// <summary>
-        /// Input source control data1 - HDMI1
+        /// Input HDMI1
         /// </summary>
         public const string InputControlHdmi1 = "\x4F\x82\x10\x00";
 
         /// <summary>
-        /// Input source control data1 - HDMI2
+        /// Input HDMI2
         /// </summary>
 		public const string InputControlHdmi2 = "\x4F\x82\x20\x00";
 
         /// <summary>
-        /// Input source control data1 - HDMI3
+        /// Input HDMI3
         /// </summary>
 		public const string InputControlHdmi3 = "\x4F\x82\x30\x00";
 
         /// <summary>
-        /// Input source control data1 - HDMI4
+        /// Input HDMI4
         /// </summary>
 		public const string InputControlHdmi4 = "\x4F\x82\x40\x00";
 
         /// <summary>
-        /// Input source control data1 - TV1
-        /// </summary>
-        public const byte InputControlTv1 = 0x40;
-
-
-
-
+		/// Volume up
+		/// </summary>
+		public const string VolumeAdjustUp = "\x40\x44\x41";
 
         /// <summary>
-        /// Volume increment/decrement control data1 - up
+        /// Volume down
         /// </summary>
-        public const byte VolumeAdjustUp = 0x00;
+        public const string VolumeAdjustDown = "\x40\x44\x42";
 
-        /// <summary>
-        /// Volume increment/decrement control data1 - down
-        /// </summary>
-        public const byte VolumeAdjustDown = 0x01;
+		/// <summary>
+		/// Volume mute on
+		/// </summary>
+		/// /// <remarks>
+		/// https://community.crestron.com/s/article/id-5633
+		/// Display -> MUTE_1
+		/// Display -> MUTE_2 = \x40\x44\x65
+		/// </remarks>
+		public const string VolumeMuteControlOn = "\x40\x44\x43";
 
-        /// <summary>
-        /// Virtual remote control (Cmd: 0xB0) pdf pg. 81
-        /// Set only, emulates the IR remote
-        /// </summary>
-        public const byte VirtualRemoteCmd = 0xB0;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Menu (0x1A)
-        /// </summary>
-        public const byte VirtualRemoteMenu = 0x1A;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Up (0x60)
-        /// </summary>
-        public const byte VirtualRemoteUp = 0x60;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Down (0x61)
-        /// </summary>
-        public const byte VirtualRemoteDown = 0x61;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Left (0x65)
-        /// </summary>
-        public const byte VirtualRemoteLeft = 0x65;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Right (0x62)
-        /// </summary>
-        public const byte VirtualRemoteRight = 0x62;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Selct (0x68)
-        /// </summary>
-        public const byte VirtualRemoteSelect = 0x68;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Exit (0x2D)
-        /// </summary>
-        public const byte VirtualRemoteExit = 0x2D;
-
-
+		/// <summary>
+		/// Volume mute off
+		/// </summary>
+		/// <remarks>
+		/// https://community.crestron.com/s/article/id-5633
+		/// Display -> RESTORE_VOLUME_FUNCTION
+		/// </remarks>
+		public const string VolumeMuteControlOff = "\x40\x44\x46";
 
         #endregion
 
+
         #region IBasicVolumeWithFeedback Members
-
-
 
         /// <summary>
         /// Volume level feedback property
@@ -299,14 +238,14 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// </summary>
         public void MuteOff()
         {
-
+			Communication.SendText(VolumeMuteControlOff);
         }
 
         /// <summary>
         /// </summary>
         public void MuteOn()
         {
-
+			Communication.SendText(VolumeMuteControlOn);
         }
 
         /// <summary>
@@ -330,14 +269,14 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <param name="pressRelease"></param>
         public void VolumeDown(bool pressRelease)
         {
-            if (pressRelease)
+            if (pressRelease) 
             {
-                // _volumeIncrementer.StartDown();
-                
+				// _volumeIncrementer.Stop(); 
             }
             else
             {
-                // _volumeIncrementer.Stop();
+				//_volumeIncrementer.StartDown();
+				Communication.SendText(VolumeAdjustDown);
             }
         }
 
@@ -349,11 +288,12 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         {
             if (pressRelease)
             {
-                
+				// _volumeDecrementer.Stop()
             }
             else
             {
-
+				//_volumeIncrementer.StatUp();
+				Communication.SendText(VolumeAdjustUp);
             }
         }
 
@@ -370,13 +310,13 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <param name="bridge"></param>
         public void LinkToApi(BasicTriList trilist, uint joinStart, string joinMapKey, EiscApiAdvanced bridge)
         {
-            var joinMap = new CecDisplayDriverControllerJoinMap(joinStart);
+            var joinMap = new CecDisplayControllerJoinMap(joinStart);
 
             var joinMapSerialized = JoinMapHelper.GetSerializedJoinMapForDevice(joinMapKey);
 
             if (!string.IsNullOrEmpty(joinMapSerialized))
             {
-                joinMap = JsonConvert.DeserializeObject<CecDisplayDriverControllerJoinMap>(joinMapSerialized);
+                joinMap = JsonConvert.DeserializeObject<CecDisplayControllerJoinMap>(joinMapSerialized);
             }
 
             Debug.Console(1, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
@@ -437,20 +377,11 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             });
 
             // Volume
-
-
             trilist.SetBoolSigAction(joinMap.VolumeUp.JoinNumber, VolumeUp);
-
-
             trilist.SetBoolSigAction(joinMap.VolumeDown.JoinNumber, VolumeDown);
-
-
             trilist.SetSigTrueAction(joinMap.VolumeMute.JoinNumber, MuteToggle);
-
             trilist.SetSigTrueAction(joinMap.VolumeMuteOn.JoinNumber, MuteOn);
             trilist.SetSigTrueAction(joinMap.VolumeMuteOff.JoinNumber, MuteOff);
-
-
         }
 
         #endregion
@@ -459,33 +390,15 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
         public StatusMonitorBase CommunicationMonitor { get; private set; }
 
-        #endregion
+        #endregion        
 
-        //public static void LoadPlugin()
-        //{
-        //    DeviceFactory.AddFactoryForType("samsungmdcplugin", BuildDevice);
-        //}
-
-        //public static SamsungMdcDisplayController BuildDevice(DeviceConfig dc)
-        //{
-        //    //var config = JsonConvert.DeserializeObject<DeviceConfig>(dc.Properties.ToString());
-        //    var newMe = new SamsungMdcDisplayController(dc);
-        //    return newMe;
-        //}
-
-        /// <summary>
-        /// Add routing input port 
-        /// </summary>
-        /// <param name="port"></param>
-        /// <param name="fbMatch"></param>
+        // Add routing input port 
         private void AddRoutingInputPort(RoutingInputPort port)
         {
             InputPorts.Add(port);
         }
 
-        /// <summary>
-        /// Initialize 
-        /// </summary>
+        // Initialize 
         private void Init()
         {
             WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 10000;
@@ -547,11 +460,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 				InputFeedback.Add(new BoolFeedback(() => CurrentInputNumber == j + 1));
             }
 
-            InputNumberFeedback = new IntFeedback(() =>
-            {
-                //Debug.Console(2, this, "Change Input number {0}", _inputNumber);
-				return CurrentInputNumber;
-            });
+            InputNumberFeedback = new IntFeedback(() => CurrentInputNumber);
         }
 
 
@@ -568,11 +477,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             return true;
         }
 
-        /// <summary>
-        /// Communication bytes recieved
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e">Event args</param>
+        // Communication bytes recieved
         private void Communication_BytesReceived(object sender, GenericCommMethodReceiveBytesArgs e)
         {
             try
@@ -593,8 +498,6 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                     // following string format from building unnecessarily on level 0 or 1
                     Debug.Console(2, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
                 }
-
-
             }
             catch (Exception ex)
             {
@@ -614,17 +517,12 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             }
 
             switch (command)
-            {
-              
+            {              
                 case 0x00:
                 {
                     
                     break;
                 }
-                 
-
-
-
                 default:
                 {
                     Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
@@ -634,9 +532,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         }
 
 
-        /// <summary>
-        /// Power feedback
-        /// </summary>
+        // Power feedback
         private void UpdatePowerFb(byte powerByte)
         {
             var newVal = powerByte == 1;
@@ -653,14 +549,13 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             PowerIsOnFeedback.FireUpdate();
         }
 
-        // <summary>
-        // Volume feedback
-        // </summary>
+		// Volume feedback
+		private void UpdateVolumeFb(byte volmeByte)
+		{
+			throw new NotImplementedException("UpdateVolumeFb not implemented");
+		}
 
-
-        /// <summary>
-        /// Mute feedback
-        /// </summary>
+		// Mute feedback
         private void UpdateMuteFb(byte b)
         {
             var newMute = b == 1;
@@ -710,9 +605,6 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                 }
 				InputNumberFeedback.FireUpdate();
             }
-
-            
-            
         }
 
 
@@ -720,8 +612,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// </summary>
         public void StatusGet()
         {
-			   Communication.SendText("\x40\x8F");
-            
+			Communication.SendText("\x40\x8F");
         }
 
         /// <summary>
@@ -730,8 +621,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// </summary>
         public override void PowerOn()
         {
-            _isPoweringOnIgnorePowerFb = true;
-			Debug.Console(2, this, "CallingPowerOn");
+	        Debug.Console(2, this, "CallingPowerOn");
             Communication.SendText(PowerControlOn);
 
             if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
@@ -756,8 +646,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// </summary>
         public override void PowerOff()
         {
-            _isPoweringOnIgnorePowerFb = false;
-			Debug.Console(2, this, "CallingPowerOff");
+	        Debug.Console(2, this, "CallingPowerOff");
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
             if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
@@ -796,8 +685,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         }
 
 
-        /// <summary>		
-
+        /// <summary>
+        /// PowerToggle
         /// </summary>
         public override void PowerToggle()
         {
@@ -812,13 +701,15 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         }
 
         /// <summary>
+        /// Input hdmi 1
+        /// </summary>
         public void InputHdmi1()
         {
             Communication.SendText(InputControlHdmi1);
         }
 
         /// <summary>
-
+        /// Input hdmi 2
         /// </summary>
         public void InputHdmi2()
         {
@@ -826,7 +717,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         }
 
         /// <summary>
-
+        /// Input hdmi 3
         /// </summary>
         public void InputHdmi3()
         {
@@ -840,14 +731,6 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         {
 			Communication.SendText(InputControlHdmi4);
         }
-
- 
-
-
-
-
-
-
 
         /// <summary>
         /// Executes a switch, turning on display if necessary.
@@ -888,8 +771,5 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                 PowerOn();
             }
         }
-
-
-
     }
 }

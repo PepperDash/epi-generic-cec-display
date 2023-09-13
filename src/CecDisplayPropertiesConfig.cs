@@ -1,26 +1,25 @@
 ﻿using Newtonsoft.Json;
-using System;
 
 namespace PepperDash.Plugin.Display.CecDisplayDriver
 {
-	public class CecDisplayDriverPropertiesConfig
+	public class CecDisplayPropertiesConfig
 	{
 		[JsonProperty("id")]
 		public string Id { get; set; }
 
         [JsonProperty("volumeUpperLimit")]
-        public int volumeUpperLimit { get; set; }
+        public int VolumeUpperLimit { get; set; }
 
         [JsonProperty("volumeLowerLimit")]
-        public int volumeLowerLimit { get; set; }
+        public int VolumeLowerLimit { get; set; }
 
         [JsonProperty("pollIntervalMs")]
-        public long pollIntervalMs { get; set; }
+        public long PollIntervalMs { get; set; }
 
         [JsonProperty("coolingTimeMs")]
-        public uint coolingTimeMs { get; set; }
+        public uint CoolingTimeMs { get; set; }
 
         [JsonProperty("warmingTimeMs")]
-        public uint warmingTimeMs { get; set; }
+        public uint WarmingTimeMs { get; set; }
 	}
 }
