@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-[assembly: AssemblyTitle("epi-GenericCecDisplay")]
+[assembly: AssemblyTitle("epi-generic-cecDisplay")]
 [assembly: AssemblyCompany("PepperDash Technology Corp")]
 [assembly: AssemblyProduct("PepperDashEssentials")]
 [assembly: AssemblyCopyright("Copyright © PepperDash Technology Corp 2023")]

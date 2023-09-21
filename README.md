@@ -61,7 +61,6 @@
 | ----------------------- | --- | ---------------------- |
 | Power Off               | 1   | Power Off Fb           |
 | Power On                | 2   | Power On Fb            |
-|                         | 3   | Is Two Display Fb      |
 | Volume Up               | 5   |                        |
 | Volume Down             | 6   |                        |
 | Volume Mute Toggle      | 7   | Volume Mute On Fb      |

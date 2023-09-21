@@ -7,8 +7,8 @@
     <ProjectGuid>{9D249E47-8F95-4437-A6BB-563510287AD1}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>PepperDash.Plugin.Display.CecDisplayDriver</RootNamespace>
-    <AssemblyName>PepperDash.Plugin.Display.CecDisplayDriver</AssemblyName>
+    <RootNamespace>GenericCecDisplay</RootNamespace>
+    <AssemblyName>epi-generic-cecDisplay</AssemblyName>
     <ProjectTypeGuids>{0B4745B0-194B-4BB6-8E21-E9057CA92300};{4D628B5B-2FBC-4AA6-8C16-197242AEB884};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <PlatformFamilyName>WindowsCE</PlatformFamilyName>
     <PlatformID>E2BECB1F-8C8C-41ba-B736-9BE7D946A398</PlatformID>
@@ -104,10 +104,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="CecDisplayController.cs" />
-    <Compile Include="CecDisplayPropertiesConfig.cs" />
-    <Compile Include="CecDisplayFactory.cs" />
-    <Compile Include="CecDisplayControllerJoinMap.cs" />
+    <Compile Include="GenericCecDisplayController.cs" />
+    <Compile Include="GenericCecDisplayPropertiesConfig.cs" />
+    <Compile Include="GenericCecDisplayFactory.cs" />
+    <Compile Include="GenericCecDisplayJoinMap.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Properties\ControlSystem.cfg" />

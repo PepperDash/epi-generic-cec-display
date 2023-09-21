@@ -9,10 +9,11 @@ using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.Routing;
 using PepperDash.Essentials.Devices.Displays;
+using Feedback = PepperDash.Essentials.Core.Feedback;
 
-namespace PepperDash.Plugin.Display.CecDisplayDriver
+namespace GenericCecDisplay
 {
-	public class CecDisplayController : TwoWayDisplayBase, IBridgeAdvanced, ICommunicationMonitor,
+	public class GenericCecDisplayController : TwoWayDisplayBase, IBridgeAdvanced, ICommunicationMonitor,
 		IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4, IBasicVolumeControls
         
     {
@@ -64,7 +65,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <param name="key"></param>
         /// <param name="comms"></param>
         //public SamsungMdcDisplayController(string key, string name, DeviceConfig config) : base(key, name)
-        public CecDisplayController(string key, string name, CecDisplayPropertiesConfig config,
+        public GenericCecDisplayController(string key, string name, GenericCecDisplayPropertiesConfig config,
             IBasicCommunication comms)
             : base(key, name)
         {
@@ -123,12 +124,12 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <summary>
         /// 
         /// </summary>
-		public override FeedbackCollection<Essentials.Core.Feedback> Feedbacks
+		public override FeedbackCollection<Feedback> Feedbacks
         {
             get
             {
                 var list = base.Feedbacks;
-				list.AddRange(new List<Essentials.Core.Feedback>
+				list.AddRange(new List<Feedback>
                 {
                     VolumeLevelFeedback,
                     MuteFeedback,
@@ -311,13 +312,13 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <param name="bridge"></param>
         public void LinkToApi(BasicTriList trilist, uint joinStart, string joinMapKey, EiscApiAdvanced bridge)
         {
-            var joinMap = new CecDisplayControllerJoinMap(joinStart);
+            var joinMap = new GenericCecDisplayJoinMap(joinStart);
 
             var joinMapSerialized = JoinMapHelper.GetSerializedJoinMapForDevice(joinMapKey);
 
             if (!string.IsNullOrEmpty(joinMapSerialized))
             {
-                joinMap = JsonConvert.DeserializeObject<CecDisplayControllerJoinMap>(joinMapSerialized);
+                joinMap = JsonConvert.DeserializeObject<GenericCecDisplayJoinMap>(joinMapSerialized);
             }
 
             Debug.Console(1, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));

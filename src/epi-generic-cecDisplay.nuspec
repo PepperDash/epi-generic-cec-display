@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package >
   <metadata>
-    <id>PepperDash.Essentials.Plugin.GenericCecDisplayDriver</id>
+    <id>PepperDash.Essentials.Plugin.GenericCecDisplay</id>
     <version>2.0.2</version>
-    <title>DynamicEisc Essentials Plugin</title>
+    <title>PepperDash Essentials Plugin Generic CEC Display</title>
     <authors>PepperDash Technologies</authors>
     <owners>pepperdash</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>

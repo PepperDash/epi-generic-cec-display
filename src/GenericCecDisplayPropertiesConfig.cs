@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 
-namespace PepperDash.Plugin.Display.CecDisplayDriver
+namespace GenericCecDisplay
 {
-	public class CecDisplayPropertiesConfig
+	public class GenericCecDisplayPropertiesConfig
 	{
 		[JsonProperty("id")]
 		public string Id { get; set; }
