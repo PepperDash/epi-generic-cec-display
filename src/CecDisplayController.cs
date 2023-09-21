@@ -68,9 +68,10 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             IBasicCommunication comms)
             : base(key, name)
         {
-	        Communication = comms;
+			Communication = comms;
             Communication.BytesReceived += Communication_BytesReceived;
-            var config1 = config;
+            
+			var config1 = config;
 
             Id = config1.Id == null ? (byte) 0x01 : Convert.ToByte(config1.Id, 16);
 

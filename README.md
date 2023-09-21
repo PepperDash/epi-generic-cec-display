@@ -23,7 +23,7 @@
 
 ## Bridge Configuration
 
-```
+```json
 {
 	"key": "eiscBridge-Displays",
 	"uid": 4,
