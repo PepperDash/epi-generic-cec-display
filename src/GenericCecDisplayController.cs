@@ -165,12 +165,22 @@ namespace GenericCecDisplay
         /// <summary>
         /// Power control on 
         /// </summary>
-        public const string PowerControlOn = "\x40\x44\x6D";
+        public const string PowerControlOnCec1 = "\x40\x44\x6D";
+
+		/// <summary>
+		/// Alternate power control code
+		/// </summary>
+		public const string PowerControlOnCec2 = "\x40\x04";
 
         /// <summary>
         /// Power control off
         /// </summary>
-		public const string PowerControlOff = "\x40\x36";
+		public const string PowerControlOffCec1 = "\x40\x44\x6C";
+
+		/// <summary>
+		/// Alternate power control off ocde
+		/// </summary>
+		public const string PowerControlOffCec2 = "\x40\x36";
 
         /// <summary>
         /// Input HDMI1
@@ -219,7 +229,7 @@ namespace GenericCecDisplay
 		/// https://community.crestron.com/s/article/id-5633
 		/// Display -> RESTORE_VOLUME_FUNCTION
 		/// </remarks>
-		public const string VolumeMuteControlOff = "\x40\x44\x46";
+		public const string VolumeMuteControlOff = "\x40\x44\x66";
 
         #endregion
 
@@ -240,14 +250,14 @@ namespace GenericCecDisplay
         /// </summary>
         public void MuteOff()
         {
-			Communication.SendText(VolumeMuteControlOff);
+			SendText(VolumeMuteControlOff);
         }
 
         /// <summary>
         /// </summary>
         public void MuteOn()
         {
-			Communication.SendText(VolumeMuteControlOn);
+			SendText(VolumeMuteControlOn);
         }
 
         /// <summary>
@@ -278,7 +288,7 @@ namespace GenericCecDisplay
             else
             {
 				//_volumeIncrementer.StartDown();
-				Communication.SendText(VolumeAdjustDown);
+				SendText(VolumeAdjustDown);
             }
         }
 
@@ -295,7 +305,7 @@ namespace GenericCecDisplay
             else
             {
 				//_volumeIncrementer.StatUp();
-				Communication.SendText(VolumeAdjustUp);
+				SendText(VolumeAdjustUp);
             }
         }
 
@@ -484,7 +494,7 @@ namespace GenericCecDisplay
         {
             try
             {
-                //Debug.Console(2, this, "Received from e:{0}", ComTextHelper.GetEscapedText(e.Bytes));
+				Debug.Console(2, this, "Communication_BytesReceived: '{0}'", ComTextHelper.GetEscapedText(e.Bytes));
 
                 // Append the incoming bytes with whatever is in the buffer
                 var newBytes = new byte[_incomingBuffer.Length + e.Bytes.Length];
@@ -498,7 +508,7 @@ namespace GenericCecDisplay
                 {
                     // This check is here to prevent
                     // following string format from building unnecessarily on level 0 or 1
-                    Debug.Console(2, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
+					Debug.Console(2, this, "Communication_BytesReceived: new bytes-'{0}'", ComTextHelper.GetEscapedText(newBytes));
                 }
             }
             catch (Exception ex)
@@ -532,6 +542,24 @@ namespace GenericCecDisplay
                 }
             }
         }
+
+		private void SendText(string cmd)
+		{
+			if (string.IsNullOrEmpty(cmd))
+			{
+				Debug.Console(1, this, "SendText: cmd is null or empty, verify cmd");
+				return;
+			}
+
+			Debug.Console(2, this, "SendText: cmd-'{0}'", cmd);
+
+			if (!Communication.IsConnected)
+			{
+				Communication.Connect();	
+			}
+
+			Communication.SendText(cmd);
+		}
 
 
         // Power feedback
@@ -614,7 +642,7 @@ namespace GenericCecDisplay
         /// </summary>
         public void StatusGet()
         {
-			Communication.SendText("\x40\x8F");
+			SendText("\x40\x8F");
         }
 
         /// <summary>
@@ -624,7 +652,8 @@ namespace GenericCecDisplay
         public override void PowerOn()
         {
 	        Debug.Console(2, this, "CallingPowerOn");
-            Communication.SendText(PowerControlOn);
+            //SendText(PowerControlOnCec1);
+			SendText(PowerControlOnCec2);
 
             if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
             {
@@ -653,7 +682,8 @@ namespace GenericCecDisplay
             // remove this check.
             if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
             {
-				Communication.SendText(PowerControlOff);
+				//SendText(PowerControlOffCec1);
+				SendText(PowerControlOffCec2);
                 _isCoolingDown = true;
                 _powerIsOn = false;
 				CurrentInputNumber = 0;
@@ -707,7 +737,7 @@ namespace GenericCecDisplay
         /// </summary>
         public void InputHdmi1()
         {
-            Communication.SendText(InputControlHdmi1);
+            SendText(InputControlHdmi1);
         }
 
         /// <summary>
@@ -715,7 +745,7 @@ namespace GenericCecDisplay
         /// </summary>
         public void InputHdmi2()
         {
-			Communication.SendText(InputControlHdmi2);
+			SendText(InputControlHdmi2);
         }
 
         /// <summary>
@@ -723,7 +753,7 @@ namespace GenericCecDisplay
         /// </summary>
         public void InputHdmi3()
         {
-			Communication.SendText(InputControlHdmi3);
+			SendText(InputControlHdmi3);
         }
 
         /// <summary>
@@ -731,7 +761,7 @@ namespace GenericCecDisplay
         /// </summary>
         public void InputHdmi4()
         {
-			Communication.SendText(InputControlHdmi4);
+			SendText(InputControlHdmi4);
         }
 
         /// <summary>
