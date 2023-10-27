@@ -3,318 +3,46 @@ using System.Collections.Generic;
 using System.Linq;
 using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
-using Newtonsoft.Json;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.Routing;
 using PepperDash.Essentials.Devices.Displays;
-using Feedback = PepperDash.Essentials.Core.Feedback;
 
 namespace GenericCecDisplay
 {
 	public class GenericCecDisplayController : TwoWayDisplayBase, IBridgeAdvanced, ICommunicationMonitor,
 		IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4, IBasicVolumeControls
 	{
-		public const int InputPowerOn = 101;
-		public const int InputPowerOff = 102;
-		public static List<string> InputKeys = new List<string>();
-
-		private readonly long _pollIntervalMs;
-		private readonly uint _warmingTimeMs;
-		private readonly uint _coolingTimeMs;
-
-
-		public List<BoolFeedback> InputFeedback;
-
-		private RoutingInputPort _currentInputPort;
-
-		private byte[] _incomingBuffer = { };
-
-		public IntFeedback InputNumberFeedback;
-
-		public int CurrentInputNumber
-		{
-			get { return _currentInputNumber; }
-			private set
-			{
-				_currentInputNumber = value;
-				InputNumberFeedback.FireUpdate();
-				UpdateBooleanFeedback();
-			}
-		}
-
-		private int _currentInputNumber;
-
-		private bool _powerIsOn;
-		private bool _isCoolingDown;
-		private bool _isWarmingUp;
-		private bool _isMuted;
-		private bool _lastCommandSentWasVolume;
-		private int _lastVolumeSent;
-
-
 		/// <summary>
 		/// Constructor for IBaseCommunication
 		/// </summary>
 		/// <param name="name"></param>
 		/// <param name="config"></param>
 		/// <param name="key"></param>
-		/// <param name="comms"></param>
-		//public SamsungMdcDisplayController(string key, string name, DeviceConfig config) : base(key, name)
-		public GenericCecDisplayController(string key, string name, GenericCecDisplayPropertiesConfig config,
-			IBasicCommunication comms)
+		/// <param name="comms"></param>		
+		public GenericCecDisplayController(string key, string name, GenericCecDisplayPropertiesConfig config, IBasicCommunication comms)
 			: base(key, name)
 		{
+			ResetDebugLevels();
+
+			_cecPowerSet = config.CecPowerSet > 0 
+				? config.CecPowerSet 
+				: 1;
+
 			Communication = comms;
 			Communication.BytesReceived += Communication_BytesReceived;
 
-			var config1 = config;
+			var pollIntervalMs = config.PollIntervalMs > 45000 ? config.PollIntervalMs : 45000;
+			CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollIntervalMs, 180000, 300000, PowerGet);
+			CommunicationMonitor.StatusChange += CommunicationMonitor_StatusChange;
 
-			Id = config1.Id == null ? (byte)0x01 : Convert.ToByte(config1.Id, 16);
+			CooldownTime = config.CoolingTimeMs == 0 ? 10000 : config.CoolingTimeMs;
+			WarmupTime = config.WarmingTimeMs == 0 ? 10000 : config.WarmingTimeMs;
 
-			_pollIntervalMs = config1.PollIntervalMs;
-			_coolingTimeMs = config1.CoolingTimeMs;
-			_warmingTimeMs = config1.WarmingTimeMs;
-
-			ResetDebugLevels();
-
-			Init();
+			InitializeRoutingPorts();
 		}
 
-		public IBasicCommunication Communication { get; private set; }
-		public byte Id { get; private set; }
-		public IntFeedback StatusFeedback { get; set; }
-
-		public int SetInput
-		{
-			get { return CurrentInputNumber; }
-			set
-			{
-				if (value > 0 && value < InputPorts.Count)
-				{
-					ExecuteSwitch(InputPorts.ElementAt(value - 1).Selector);
-					CurrentInputNumber = value;
-				}
-			}
-		}
-
-
-		protected override Func<bool> PowerIsOnFeedbackFunc
-		{
-			get { return () => _powerIsOn; }
-		}
-
-		protected override Func<bool> IsCoolingDownFeedbackFunc
-		{
-			get { return () => _isCoolingDown; }
-		}
-
-		protected override Func<bool> IsWarmingUpFeedbackFunc
-		{
-			get { return () => _isWarmingUp; }
-		}
-
-		protected override Func<string> CurrentInputFeedbackFunc
-		{
-			get { return () => _currentInputPort.Key; }
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public override FeedbackCollection<Feedback> Feedbacks
-		{
-			get
-			{
-				var list = base.Feedbacks;
-				list.AddRange(new List<Feedback>
-				{
-					VolumeLevelFeedback,
-					MuteFeedback,
-					CurrentInputFeedback
-				});
-				return list;
-			}
-		}
-
-		#region Command Constants
-
-		/* https://groups.io/g/crestron/topic/35798610
-		 * https://support.crestron.com/app/answers/detail/a_id/5633/kw/CEC
-		 * https://community.crestron.com/s/article/id-5633
-		 *	HDMI 1 \x4F\x82\x10\x00 tested
-		 *	HDMI 2 \x4F\x82\x20\x00 tested
-		 *	HDMI 3 \x4F\x82\x30\x00 tested
-		 *	HDMI 4 \x4F\x82\x40\x00 tested
-		 *	HDMI 5 \x4F\x82\x50\x00 not tested
-		 *	HDMI 6 \x4F\x82\x60\x00 not tested
-		 */
-
-		/// <summary>
-		/// QUERY_POWER_OSC	\x40\x8F
-		/// </summary>
-		public const string PowerStatusCmd = "\x40\x8F";
-
-		/// <summary>
-		/// Gets/sets the power state
-		/// </summary>
-		public const string PowerControlToggle = "\x40\x44\x6D";
-
-		/// <summary>
-		/// Power control on 
-		/// </summary>
-		public const string PowerControlOnCec1 = "\x40\x44\x6D";
-
-		/// <summary>
-		/// Alternate power control code
-		/// </summary>
-		public const string PowerControlOnCec2 = "\x40\x04";
-
-		/// <summary>
-		/// Power control off
-		/// </summary>
-		public const string PowerControlOffCec1 = "\x40\x44\x6C";
-
-		/// <summary>
-		/// Alternate power control off ocde
-		/// </summary>
-		public const string PowerControlOffCec2 = "\x40\x36";
-
-		/// <summary>
-		/// Input HDMI1
-		/// </summary>
-		public const string InputControlHdmi1 = "\x4F\x82\x10\x00";
-
-		/// <summary>
-		/// Input HDMI2
-		/// </summary>
-		public const string InputControlHdmi2 = "\x4F\x82\x20\x00";
-
-		/// <summary>
-		/// Input HDMI3
-		/// </summary>
-		public const string InputControlHdmi3 = "\x4F\x82\x30\x00";
-
-		/// <summary>
-		/// Input HDMI4
-		/// </summary>
-		public const string InputControlHdmi4 = "\x4F\x82\x40\x00";
-
-		/// <summary>
-		/// Volume up
-		/// </summary>
-		public const string VolumeAdjustUp = "\x40\x44\x41";
-
-		/// <summary>
-		/// Volume down
-		/// </summary>
-		public const string VolumeAdjustDown = "\x40\x44\x42";
-
-		/// <summary>
-		/// Volume mute on
-		/// </summary>
-		/// /// <remarks>
-		/// https://community.crestron.com/s/article/id-5633
-		/// Display -> MUTE_1
-		/// Display -> MUTE_2 = \x40\x44\x65
-		/// </remarks>
-		public const string VolumeMuteControlOn = "\x40\x44\x43";
-
-		/// <summary>
-		/// Volume mute off
-		/// </summary>
-		/// <remarks>
-		/// https://community.crestron.com/s/article/id-5633
-		/// Display -> RESTORE_VOLUME_FUNCTION
-		/// </remarks>
-		public const string VolumeMuteControlOff = "\x40\x44\x66";
-
-
-		public byte[] PowerOnFb = { 0x40, 0x90, 0x00 };
-		public byte[] PowerOffFb = { 0x40, 0x90, 0x01 };
-		public byte[] PowerWarmingFb = { 0x40, 0x90, 0x02 };
-		public byte[] PowerCoolingFb = { 0x40, 0x90, 0x03 };
-
-		#endregion
-
-
-		#region IBasicVolumeWithFeedback Members
-
-		/// <summary>
-		/// Volume level feedback property
-		/// </summary>
-		public IntFeedback VolumeLevelFeedback { get; private set; }
-
-		/// <summary>
-		/// volume mte feedback property
-		/// </summary>
-		public BoolFeedback MuteFeedback { get; private set; }
-
-		/// <summary>
-		/// </summary>
-		public void MuteOff()
-		{
-			SendText(VolumeMuteControlOff);
-		}
-
-		/// <summary>
-		/// </summary>
-		public void MuteOn()
-		{
-			SendText(VolumeMuteControlOn);
-		}
-
-		/// <summary>
-		/// Mute toggle
-		/// </summary>
-		public void MuteToggle()
-		{
-			if (_isMuted)
-			{
-				MuteOff();
-			}
-			else
-			{
-				MuteOn();
-			}
-		}
-
-		/// <summary>
-		/// Volume down (decrement)
-		/// </summary>
-		/// <param name="pressRelease"></param>
-		public void VolumeDown(bool pressRelease)
-		{
-			if (pressRelease)
-			{
-				// _volumeIncrementer.Stop(); 
-			}
-			else
-			{
-				//_volumeIncrementer.StartDown();
-				SendText(VolumeAdjustDown);
-			}
-		}
-
-		/// <summary>
-		/// Volume up (increment)
-		/// </summary>
-		/// <param name="pressRelease"></param>
-		public void VolumeUp(bool pressRelease)
-		{
-			if (pressRelease)
-			{
-				// _volumeDecrementer.Stop()
-			}
-			else
-			{
-				//_volumeIncrementer.StatUp();
-				SendText(VolumeAdjustUp);
-			}
-		}
-
-		#endregion
 
 		#region IBridgeAdvanced Members
 
@@ -329,169 +57,138 @@ namespace GenericCecDisplay
 		{
 			var joinMap = new GenericCecDisplayJoinMap(joinStart);
 
-			var joinMapSerialized = JoinMapHelper.GetSerializedJoinMapForDevice(joinMapKey);
-
-			if (!string.IsNullOrEmpty(joinMapSerialized))
+			// This adds the join map to the collection on the bridge
+			if (bridge != null)
 			{
-				joinMap = JsonConvert.DeserializeObject<GenericCecDisplayJoinMap>(joinMapSerialized);
+				bridge.AddJoinMap(Key, joinMap);
+			}
+
+			var customJoins = JoinMapHelper.TryGetJoinMapAdvancedForDevice(joinMapKey);
+			if (customJoins != null)
+			{
+				joinMap.SetCustomJoinData(customJoins);
 			}
 
 			Debug.Console(DebugNotice, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
-			Debug.Console(DebugTrace, "Linking to Display: {0}", Name);
+			Debug.Console(DebugTrace, "Linking to Bridge Type {0}", GetType().Name);
 
-			trilist.StringInput[joinMap.Name.JoinNumber].StringValue = Name;
+			// links to bridge
+			// device name
+			trilist.SetString(joinMap.Name.JoinNumber, Name);
 
-			CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
+			//var twoWayDisplay = this as TwoWayDisplayBase;
+			//trilist.SetBool(joinMap.IsTwoWayDisplay.JoinNumber, twoWayDisplay != null);
 
-
-			// input analog feedback
-			InputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
-
+			if (CommunicationMonitor != null)
+			{
+				CommunicationMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
+			}
 
 			// Power Off
-			trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, () => PowerOff());
-
+			trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, PowerOff);
 			PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
+
 
 			// PowerOn
 			trilist.SetSigTrueAction(joinMap.PowerOn.JoinNumber, PowerOn);
 			PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
 
-			// Input digitals
-			var count = 0;
 
-			foreach (var input in InputPorts)
+			// input (digital select, digital feedback, names)
+			for (var i = 0; i < InputPorts.Count; i++)
 			{
-				var i = count;
-				trilist.SetSigTrueAction((ushort)(joinMap.InputSelectOffset.JoinNumber + count),
-					() => SetInput = i + 1);
+				var inputIndex = i;
+				var input = InputPorts.ElementAt(inputIndex);
 
-				trilist.StringInput[(ushort)(joinMap.InputNamesOffset.JoinNumber + count)].StringValue = input.Key;
+				if (input == null) continue;
 
-				InputFeedback[count].LinkInputSig(
-					trilist.BooleanInput[joinMap.InputSelectOffset.JoinNumber + (uint)count]);
-				count++;
+				var inputSelectJoin = (uint)(joinMap.InputSelectOffset.JoinNumber + inputIndex);
+				var inputNameJoin = (uint)(joinMap.InputNamesOffset.JoinNumber + inputIndex);
+
+				trilist.SetSigTrueAction(inputSelectJoin, () =>
+				{
+					Debug.Console(DebugVerbose, this, "INputSelect Digital-'{0}'", inputIndex + 1);
+					SetInput = inputIndex + 1;
+				});
+
+				trilist.StringInput[inputNameJoin].StringValue = string.IsNullOrEmpty(input.Key)
+					? string.Empty
+					: input.Key;
+
+				InputFeedback[inputIndex].LinkInputSig(trilist.BooleanInput[inputSelectJoin]);
 			}
 
-
-			// Input analog
-			trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, a =>
+			// input (analog select)
+			trilist.SetUShortSigAction(joinMap.InputSelect.JoinNumber, analogValue =>
 			{
-				if (a == 0)
-				{
-					PowerOff();
-				}
-				else if (a > 0 && a < InputPorts.Count)
-				{
-					SetInput = a;
-
-				}
-				else if (a == 102)
-				{
-					PowerToggle();
-				}
-				Debug.Console(DebugVerbose, this, "InputChange {0}", a);
+				Debug.Console(DebugVerbose, this, "InpoutSelect Analog-'{0}'", analogValue);
+				SetInput = analogValue;
 			});
 
-			// Volume
+			// input (analog feedback)
+			if (CurrentInputFeedback != null)
+				CurrentInputNumberFeedback.LinkInputSig(trilist.UShortInput[joinMap.InputSelect.JoinNumber]);
+
+			if (CurrentInputFeedback != null)
+				CurrentInputFeedback.OutputChange +=
+					(sender, args) => Debug.Console(DebugVerbose, this, "CurrentInputFeedback: {0}", args.StringValue);
+
+			// volume
 			trilist.SetBoolSigAction(joinMap.VolumeUp.JoinNumber, VolumeUp);
 			trilist.SetBoolSigAction(joinMap.VolumeDown.JoinNumber, VolumeDown);
+
+			// mute
 			trilist.SetSigTrueAction(joinMap.VolumeMute.JoinNumber, MuteToggle);
 			trilist.SetSigTrueAction(joinMap.VolumeMuteOn.JoinNumber, MuteOn);
 			trilist.SetSigTrueAction(joinMap.VolumeMuteOff.JoinNumber, MuteOff);
-		}
 
-		#endregion
-
-		#region ICommunicationMonitor Members
-
-		public StatusMonitorBase CommunicationMonitor { get; private set; }
-
-		#endregion
-
-		// Add routing input port 
-		private void AddRoutingInputPort(RoutingInputPort port)
-		{
-			InputPorts.Add(port);
-		}
-
-		// Initialize 
-		private void Init()
-		{
-			WarmupTime = _warmingTimeMs > 0 ? _warmingTimeMs : 10000;
-			CooldownTime = _coolingTimeMs > 0 ? _coolingTimeMs : 8000;
-
-			InitCommMonitor();
-
-			InitInputPortsAndFeedbacks();
-
-			StatusGet();
-		}
-
-
-
-		private void InitCommMonitor()
-		{
-			var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 30000;
-
-			CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000,
-				StatusGet);
-
-			DeviceManager.AddDevice(CommunicationMonitor);
-
-			StatusFeedback = new IntFeedback(() => (int)CommunicationMonitor.Status);
-
-			CommunicationMonitor.StatusChange += (sender, args) =>
+			// bridge online change
+			trilist.OnlineStatusChange += (sender, args) =>
 			{
-				Debug.Console(DebugVerbose, this, "Device status: {0}", CommunicationMonitor.Status);
-				StatusFeedback.FireUpdate();
+				if (!args.DeviceOnLine) return;
+
+				// device name
+				trilist.SetString(joinMap.Name.JoinNumber, Name);
+
+				PowerIsOnFeedback.FireUpdate();
+
+				if (CurrentInputFeedback != null)
+					CurrentInputFeedback.FireUpdate();
+
+				if (CurrentInputNumberFeedback != null)
+					CurrentInputNumberFeedback.FireUpdate();
+
+				for (var i = 0; i < InputPorts.Count; i++)
+				{
+					var inputIndex = i;
+					if (InputFeedback != null)
+						InputFeedback[inputIndex].FireUpdate();
+				}
 			};
 		}
 
-		private void InitInputPortsAndFeedbacks()
-		{
-			//_InputFeedback = new List<bool>();
-			InputFeedback = new List<BoolFeedback>();
-
-			AddRoutingInputPort(
-				new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this));
-
-			AddRoutingInputPort(
-				new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this));
-
-			AddRoutingInputPort(
-				new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this));
-
-			AddRoutingInputPort(
-				new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this));
+		#endregion
 
 
-			for (var i = 0; i < InputPorts.Count; i++)
-			{
-				var j = i;
+		#region ICommunicationMonitor Members
 
-				InputFeedback.Add(new BoolFeedback(() => CurrentInputNumber == j + 1));
-			}
-
-			InputNumberFeedback = new IntFeedback(() => CurrentInputNumber);
-		}
-
+		// incoming byte buffer
+		private readonly byte[] _incomingBuffer = { };
 
 		/// <summary>
-		/// Custom activate
+		/// IBasicComminication object
 		/// </summary>
-		/// <returns></returns>
-		public override bool CustomActivate()
+		public IBasicCommunication Communication { get; private set; }
+
+		/// <summary>
+		/// Communication status monitor object
+		/// </summary>
+		public StatusMonitorBase CommunicationMonitor { get; private set; }
+
+		// communicationMonitor status change
+		private void CommunicationMonitor_StatusChange(object sender, MonitorStatusChangeEventArgs args)
 		{
-			Communication.Connect();
-			CommunicationMonitor.StatusChange +=
-				(o, a) => Debug.Console(DebugVerbose, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
-			CommunicationMonitor.Start();
-			return true;
+			CommunicationMonitor.IsOnlineFeedback.FireUpdate();
 		}
 
 		// Communication bytes recieved
@@ -499,66 +196,74 @@ namespace GenericCecDisplay
 		{
 			try
 			{
-				Debug.Console(DebugVerbose, this, "Communication_BytesReceived: '{0}'", ComTextHelper.GetEscapedText(e.Bytes));
-
-				ParseMessage(e.Bytes);
+				// following string format from building unnecessarily on level 0 or 1
+				if (Debug.Level == DebugVerbose)
+					Debug.Console(DebugVerbose, this, "Communication_BytesReceived: '{0}'", ComTextHelper.GetEscapedText(e.Bytes));
 
 				// Append the incoming bytes with whatever is in the buffer
 				var newBytes = new byte[_incomingBuffer.Length + e.Bytes.Length];
 				_incomingBuffer.CopyTo(newBytes, 0);
 				e.Bytes.CopyTo(newBytes, _incomingBuffer.Length);
-				
+
+				// following string format from building unnecessarily on level 0 or 1
 				if (Debug.Level == DebugVerbose)
-				{
-					// This check is here to prevent
-					// following string format from building unnecessarily on level 0 or 1
 					Debug.Console(DebugVerbose, this, "Communication_BytesReceived: new bytes-'{0}'", ComTextHelper.GetEscapedText(newBytes));
-				}				
+
+				ProcessResponse(newBytes);
 			}
 			catch (Exception ex)
 			{
-				Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Exception parsing feedback: {0}", ex.Message));
-				Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Stack trace: {0}", ex.StackTrace));
+				Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Communication_BytesReceived Exception Message: {0}", ex.Message));
+				Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Communication_BytesReceived Exception Stacktrace: {0}", ex.StackTrace));
+				if (ex.InnerException != null) Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Communication_BytesReceived InnerException: {0}", ex.InnerException));
 			}
 		}
 
-		private void ParseMessage(byte[] message)
+		// processes device responses
+		private void ProcessResponse(byte[] message)
 		{
-			// This check is here to prevent following string format from building unnecessarily on level 0 or 1
-			Debug.Console(DebugVerbose, this, "ParseMessage: '{0}'", ComTextHelper.GetEscapedText(message));
+			// following string format from building unnecessarily on level 0 or 1
+			if (Debug.Level == DebugVerbose)
+				Debug.Console(DebugVerbose, this, "ProcessResponse: '{0}'", ComTextHelper.GetEscapedText(message));
 
-			// power response
-			if (message[0] != 0x40 && message[1] != 0x90) return;
-
+			// power response prefix, message[2] == state
+			if (message[0] != 0x40 || message[1] != 0x90) return;
 			switch (message[2])
 			{
+					// power on
 				case 0x00:
-					UpdatePowerFb("on");
+				{
+					PowerIsOn = true;
 					break;
-
+				}
+					// power off
 				case 0x01:
-					{
-						UpdatePowerFb("off");
-						break;
-					}
+				{
+					PowerIsOn = false;
+					break;
+				}
+					// warming
 				case 0x02:
-					{
-						UpdatePowerFb("warming");
-						break;
-					}
+				{
+					break;
+				}
+					// cooling
 				case 0x03:
-					{
-						UpdatePowerFb("cooling");
-						break;
-					}
+				{
+					break;
+				}
 				default:
-					{
-						Debug.Console(DebugNotice, this, "ParseMessge: unknown power response '{0}'", ComTextHelper.GetEscapedText(message));
-						break;
-					}
+				{
+					Debug.Console(DebugVerbose, this, "ProcessResponse: unhandled power response '{0}'", message[2]);
+					break;
+				}
 			}
 		}
 
+		/// <summary>
+		/// send ASCII formatted commands 
+		/// </summary>
+		/// <param name="cmd"></param>
 		public void SendText(string cmd)
 		{
 			if (string.IsNullOrEmpty(cmd))
@@ -578,65 +283,584 @@ namespace GenericCecDisplay
 		}
 
 
-		// Power feedback
-		private void UpdatePowerFb(string state)
+		/// <summary>
+		/// Send byte formatted commands
+		/// </summary>
+		/// <param name="cmd"></param>
+		public void SendBytes(byte[] cmd)
 		{
-			if (string.IsNullOrEmpty(state)) return;
-
-			Debug.Console(DebugVerbose, this, "UpdatePowerFb: state-'{0}'", state);
-
-			switch (state)
+			if (cmd == null || cmd.Length == 0)
 			{
-				case "off":
-					{
-						_powerIsOn = false;
-						_isCoolingDown = false;
-						_isWarmingUp = false;
+				Debug.Console(DebugNotice, this, "SendBytes: cmd is null or empty, verify cmd");
+				return;
+			}
 
-						PowerIsOnFeedback.FireUpdate();
+			Debug.Console(DebugVerbose, this, "SendBytes: '{0}'", ComTextHelper.GetEscapedText(cmd));
 
-						break;
-					}
-				case "on":
-					{
-						_powerIsOn = true;
-						_isCoolingDown = false;
-						_isWarmingUp = false;
+			if (!Communication.IsConnected)
+			{
+				Communication.Connect();
+			}
 
-						PowerIsOnFeedback.FireUpdate();
+			Communication.SendBytes(cmd);
+		}
 
-						break;
-					}
-				case "cooling":
-					{
-						_isCoolingDown = true;
-						_isWarmingUp = false;
+		#endregion
 
-						IsCoolingDownFeedback.FireUpdate();
 
-						break;
-					}
-				case "warming":
-					{
-						_isCoolingDown = false;
-						_isWarmingUp = true;
+		/// <summary>
+		/// Initialize
+		/// </summary>
+		public override void Initialize()
+		{
+			Communication.Connect();
+			CommunicationMonitor.Start();
+		}
 
-						IsWarmingUpFeedback.FireUpdate();
 
-						break;
-					}
-				default:
-					{
-						break;
-					}
+		/// <summary>
+		/// Executes a switch, turning on display if necesary
+		/// </summary>
+		/// <param name="selector"></param>
+		public override void ExecuteSwitch(object selector)
+		{
+			if (PowerIsOn)
+			{
+				var action = selector as Action;
+				Debug.Console(DebugNotice, this, "ExecuteSwitch: action is {0}", action == null ? "null" : "not null");
+				if (action != null)
+					CrestronInvoke.BeginInvoke(o => action());
+			}
+			// if power is off, wait until we get on FB to send it
+			else
+			{
+				// one-time event handler to wait for power on before executing switch 
+				EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
+				handler = (sender, args) =>
+				{
+					if (IsWarmingUp) return;
+
+					IsWarmingUpFeedback.OutputChange -= handler;
+
+					var action = selector as Action;
+					Debug.Console(DebugNotice, this, "ExecuteSwitch: action is {0}", action == null ? "null" : "not null");
+					if (action != null)
+						CrestronInvoke.BeginInvoke(o => action());
+				};
+				IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on fb
+				PowerOn();
 			}
 		}
+
+		#region Power
+
+		private bool _isCoolingDown;
+		private bool _isWarmingUp;
+		private bool _powerIsOn;
+
+		private uint _cecPowerSet;
+
+		/// <summary>
+		/// Power is on property
+		/// </summary>
+		public bool PowerIsOn
+		{
+			get { return _powerIsOn; }
+			set
+			{
+				if (_powerIsOn == value)
+				{
+					return;
+				}
+
+				_powerIsOn = value;
+				PowerIsOnFeedback.FireUpdate();
+			}
+		}
+
+		/// <summary>
+		/// Is warming property
+		/// </summary>
+		public bool IsWarmingUp
+		{
+			get { return _isWarmingUp; }
+			set
+			{
+				_isWarmingUp = value;
+				IsWarmingUpFeedback.FireUpdate();
+
+				if (_isWarmingUp)
+				{
+					WarmupTimer = new CTimer(t =>
+					{
+						_isWarmingUp = false;
+						IsWarmingUpFeedback.FireUpdate();
+					}, WarmupTime);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Is cooling property
+		/// </summary>
+		public bool IsCoolingDown
+		{
+			get { return _isCoolingDown; }
+			set
+			{
+				_isCoolingDown = value;
+				IsCoolingDownFeedback.FireUpdate();
+
+				if (_isCoolingDown)
+				{
+					CooldownTimer = new CTimer(t =>
+					{
+						_isCoolingDown = false;
+						IsCoolingDownFeedback.FireUpdate();
+					}, CooldownTime);
+				}
+			}
+		}
+
+		protected override Func<bool> PowerIsOnFeedbackFunc
+		{
+			get { return () => PowerIsOn; }
+		}
+
+		protected override Func<bool> IsCoolingDownFeedbackFunc
+		{
+			get { return () => IsCoolingDown; }
+		}
+
+		protected override Func<bool> IsWarmingUpFeedbackFunc
+		{
+			get { return () => IsWarmingUp; }
+		}
+
+		/// <summary>
+		/// Set Power On For Device
+		/// </summary>
+		public override void PowerOn()
+		{
+			if (IsWarmingUp || IsCoolingDown) return;
+
+			if (!PowerIsOn) IsWarmingUp = true;
+
+			var cmd = _cecPowerSet == 1
+				? CecCommands.PowerOnCec1
+				: CecCommands.PowerOnCec2;
+
+			SendBytes(cmd);
+		}
+
+		/// <summary>
+		/// Set Power Off for Device
+		/// </summary>
+		public override void PowerOff()
+		{
+			if (IsWarmingUp || IsCoolingDown) return;
+
+			if (PowerIsOn) IsCoolingDown = true;
+
+			var cmd = _cecPowerSet == 1
+				? CecCommands.PowerOffCec1
+				: CecCommands.PowerOffCec2;
+
+			SendBytes(cmd);
+		}
+
+		/// <summary>
+		/// Poll Power
+		/// </summary>
+		public void PowerGet()
+		{
+			SendBytes(CecCommands.PowerStatus);
+		}
+
+
+		/// <summary>
+		/// Toggle current power state for device
+		/// </summary>
+		public override void PowerToggle()
+		{
+			if (PowerIsOn)
+			{
+				PowerOff();
+			}
+			else
+			{
+				PowerOn();
+			}
+		}
+
+		#endregion
+
+
+
+
+		#region Inputs
+
+
+		/// <summary>
+		/// Input power on constant
+		/// </summary>
+		public const int InputPowerOn = 101;
+
+		/// <summary>
+		/// Input power off constant
+		/// </summary>
+		public const int InputPowerOff = 102;
+
+		/// <summary>
+		/// Input key list
+		/// </summary>
+		public static List<string> InputKeys = new List<string>();
+
+		/// <summary>
+		/// Input (digital) feedback
+		/// </summary>
+		public List<BoolFeedback> InputFeedback;
+
+		/// <summary>
+		/// Input number (analog) feedback
+		/// </summary>
+		public IntFeedback CurrentInputNumberFeedback;
+
+		private RoutingInputPort _currentInputPort;
+
+		protected override Func<string> CurrentInputFeedbackFunc
+		{
+			get { return () => _currentInputPort != null ? _currentInputPort.Key : string.Empty; }
+		}
+
+		private List<bool> _inputFeedback;
+		private int _currentInputNumber;
+
+		/// <summary>
+		/// Input number property
+		/// </summary>
+		public int CurrentInputNumber
+		{
+			get { return _currentInputNumber; }
+			private set
+			{
+				_currentInputNumber = value;
+				CurrentInputNumberFeedback.FireUpdate();
+				UpdateInputBooleanFeedback();
+			}
+		}
+
+		/// <summary>
+		/// Sets the requested input
+		/// </summary>
+		public int SetInput
+		{
+			set
+			{
+				if (value <= 0 || value > InputPorts.Count)
+				{
+					Debug.Console(DebugNotice, this, "SetInput: value-'{0}' is out of range (1 - {1})", value, InputPorts.Count);
+					return;
+				}
+
+				Debug.Console(DebugNotice, this, "SetInput: value-'{0}'", value);
+
+				// -1 to get actual input in list after 0d check
+				var port = GetInputPort(value - 1);
+				if (port == null)
+				{
+					Debug.Console(DebugNotice, this, "SetInput: failed to get input port");
+					return;
+				}
+
+				Debug.Console(DebugVerbose, this, "SetInput: port.key-'{0}', port.Selector-'{1}', port.ConnectionType-'{2}', port.FeebackMatchObject-'{3}'",
+					port.Key, port.Selector, port.ConnectionType, port.FeedbackMatchObject);
+
+				ExecuteSwitch(port.Selector);
+			}
+
+		}
+
+		private RoutingInputPort GetInputPort(int input)
+		{
+			return InputPorts.ElementAt(input);
+		}
+
+		private void AddRoutingInputPort(RoutingInputPort port, string fbMatch)
+		{
+			port.FeedbackMatchObject = fbMatch;
+			InputPorts.Add(port);
+		}
+
+		private void AddRoutingInputPort(RoutingInputPort port, byte fbMatch)
+		{
+			port.FeedbackMatchObject = fbMatch;
+			InputPorts.Add(port);
+		}
+
+		private void InitializeRoutingPorts()
+		{
+			var hdmiIn1 = new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this);
+			AddRoutingInputPort(hdmiIn1, 0x10);
+
+			var hdmiIn2 = new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this);
+			AddRoutingInputPort(hdmiIn2, 0x20);
+
+
+			var hdmiIn3 = new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this);
+			AddRoutingInputPort(hdmiIn3, 0x30);
+
+			var hdmiIn4 = new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
+					eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this);
+			AddRoutingInputPort(hdmiIn4, 0x40);
+
+
+			// initialize feedbacks after adding input ports
+			_inputFeedback = new List<bool>();
+			InputFeedback = new List<BoolFeedback>();
+
+			for (var i = 0; i < InputPorts.Count; i++)
+			{
+				var input = i + 1;
+				InputFeedback.Add(new BoolFeedback(() =>
+				{
+					Debug.Console(DebugNotice, this, "CurrentInput Number: {0}; input: {1};", CurrentInputNumber, input);
+					return CurrentInputNumber == input;
+				}));
+			}
+
+			CurrentInputNumberFeedback = new IntFeedback(() =>
+			{
+				Debug.Console(DebugVerbose, this, "CurrentInputNumberFeedback: {0}", CurrentInputNumber);
+				return CurrentInputNumber;
+			});
+		}
+
+		/// <summary>
+		/// Lists available input routing ports
+		/// </summary>
+		public void ListRoutingInputPorts()
+		{
+			var index = 0;
+			foreach (var inputPort in InputPorts)
+			{
+				Debug.Console(0, this, "ListRoutingInputPorts: index-'{0}' key-'{1}', connectionType-'{2}', feedbackMatchObject-'{3}'",
+					index, inputPort.Key, inputPort.ConnectionType, inputPort.FeedbackMatchObject);
+				index++;
+			}
+		}
+
+		/// <summary>
+		/// Input hdmi 1
+		/// </summary>
+		public void InputHdmi1()
+		{
+			SendBytes(CecCommands.InputHdmi1);
+		}
+
+		/// <summary>
+		/// Input hdmi 2
+		/// </summary>
+		public void InputHdmi2()
+		{
+			SendBytes(CecCommands.InputHdmi2);
+		}
+
+		/// <summary>
+		/// Input hdmi 3
+		/// </summary>
+		public void InputHdmi3()
+		{
+			SendBytes(CecCommands.InputHdmi3);
+		}
+
+		/// <summary>
+		/// INput hdmi 4
+		/// </summary>
+		public void InputHdmi4()
+		{
+			SendBytes(CecCommands.InputHdmi4);
+		}
+
+		/// <summary>
+		/// Process input feedback from device
+		/// </summary>
+		private void UpdateInputFb(byte b)
+		{
+			var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
+
+			if (newInput == null) return;
+
+			if (newInput == _currentInputPort)
+			{
+				Debug.Console(DebugNotice, this, "UpdateInputFb: _currentInputPort-'{0}' == newInput-'{1}'",
+					_currentInputPort.Key, newInput.Key);
+				return;
+			}
+
+			Debug.Console(DebugNotice, this, "UpdateInputFb: newInput key-'{0}', connectionType-'{1}', feedbackMatchObject-'{2}'",
+				newInput.Key, newInput.ConnectionType, newInput.FeedbackMatchObject);
+
+			_currentInputPort = newInput;
+			CurrentInputFeedback.FireUpdate();
+
+			Debug.Console(DebugNotice, this, "UpdateInputFb: _currentInputPort.key-'{0}'", _currentInputPort.Key);
+
+			switch (_currentInputPort.Key)
+			{
+				case RoutingPortNames.HdmiIn1:
+					CurrentInputNumber = 1;
+					break;
+				case RoutingPortNames.HdmiIn2:
+					CurrentInputNumber = 2;
+					break;
+				case RoutingPortNames.DviIn1:
+					CurrentInputNumber = 3;
+					break;
+				case RoutingPortNames.VgaIn1:
+					CurrentInputNumber = 4;
+					break;
+				case RoutingPortNames.HdmiIn5:
+					CurrentInputNumber = 5;
+					break;
+				case RoutingPortNames.HdmiIn4:
+					CurrentInputNumber = 6;
+					break;
+			}
+		}
+
+		/// <summary>
+		/// Updates Digital Route Feedback for Simpl EISC
+		/// </summary>
+		private void UpdateInputBooleanFeedback()
+		{
+			foreach (var item in InputFeedback)
+			{
+				item.FireUpdate();
+			}
+		}
+
+		#endregion
+
+
+
+
+		#region Volume & Mute
+
+
+
+		#endregion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		#region IBasicVolumeWithFeedback Members
+
+		private bool _isMuted;
+		private bool _lastCommandSentWasVolume;
+		private int _lastVolumeSent;
+
+		/// <summary>
+		/// Volume level feedback property
+		/// </summary>
+		public IntFeedback VolumeLevelFeedback { get; private set; }
+
+		/// <summary>
+		/// volume mte feedback property
+		/// </summary>
+		public BoolFeedback MuteFeedback { get; private set; }
+
+		/// <summary>
+		/// Volume up (increment)
+		/// </summary>
+		/// <param name="pressRelease"></param>
+		public void VolumeUp(bool pressRelease)
+		{
+			if (pressRelease)
+			{
+				// _volumeDecrementer.Stop()
+			}
+			else
+			{
+				//_volumeIncrementer.StatUp();
+				SendBytes(CecCommands.VolumeUp);
+			}
+		}
+
+		/// <summary>
+		/// Volume down (decrement)
+		/// </summary>
+		/// <param name="pressRelease"></param>
+		public void VolumeDown(bool pressRelease)
+		{
+			if (pressRelease)
+			{
+				// _volumeIncrementer.Stop(); 
+			}
+			else
+			{
+				//_volumeIncrementer.StartDown();
+				SendBytes(CecCommands.VolumeDown);
+			}
+		}
+
+
 
 		// Volume feedback
 		private void UpdateVolumeFb(byte volmeByte)
 		{
 			throw new NotImplementedException("UpdateVolumeFb not implemented");
 		}
+
+		/// <summary>
+		/// </summary>
+		public void MuteOn()
+		{
+			SendBytes(CecCommands.MuteOn);
+		}
+
+		/// <summary>
+		/// </summary>
+		public void MuteOff()
+		{
+			SendBytes(CecCommands.MuteOff);
+		}
+
+		/// <summary>
+		/// Mute toggle
+		/// </summary>
+		public void MuteToggle()
+		{
+			if (_isMuted)
+			{
+				MuteOff();
+			}
+			else
+			{
+				MuteOn();
+			}
+		}
+
 
 		// Mute feedback
 		private void UpdateMuteFb(byte b)
@@ -651,211 +875,9 @@ namespace GenericCecDisplay
 			MuteFeedback.FireUpdate();
 		}
 
-		/// <summary>
-		/// Input feedback
-		/// </summary>
-		private void UpdateInputFb(byte b)
-		{
-			var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(b));
-			if (newInput != null && _powerIsOn)
-			{
-				_currentInputPort = newInput;
-				CurrentInputFeedback.FireUpdate();
-				var key = newInput.Key;
-				switch (key)
-				{
-					case "hdmiIn1":
-						CurrentInputNumber = 1;
-						break;
-					case "hdmiIn2":
-						CurrentInputNumber = 2;
-						break;
-					case "hdmiIn3":
-						CurrentInputNumber = 3;
-						break;
-					case "hdmiIn4":
-						CurrentInputNumber = 4;
-						break;
-					case "displayPortIn1":
-						CurrentInputNumber = 5;
-						break;
-					case "displayPortIn2":
-						CurrentInputNumber = 6;
-						break;
-					case "dviIn":
-						CurrentInputNumber = 7;
-						break;
-				}
-				InputNumberFeedback.FireUpdate();
-			}
-		}
+		#endregion
 
 
-		/// <summary>
-		/// </summary>
-		public void StatusGet()
-		{
-			SendText("\x40\x8F");
-		}
-
-		/// <summary>
-		/// Power on (Cmd: 0x11) pdf page 42 
-		/// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01][CS=0x00]
-		/// </summary>
-		public override void PowerOn()
-		{
-			Debug.Console(DebugVerbose, this, "CallingPowerOn");
-			//SendText(PowerControlOnCec1);
-			SendText(PowerControlOnCec2);
-
-			if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
-			{
-				return;
-			}
-			_isWarmingUp = true;
-			IsWarmingUpFeedback.FireUpdate();
-			// Fake power-up cycle
-			WarmupTimer = new CTimer(o =>
-			{
-				_isWarmingUp = false;
-				_powerIsOn = true;
-				IsWarmingUpFeedback.FireUpdate();
-				PowerIsOnFeedback.FireUpdate();
-			}, WarmupTime);
-		}
-
-		/// <summary>
-		/// Power off (Cmd: 0x11) pdf page 42 
-		/// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x00][CS=0x00]
-		/// </summary>
-		public override void PowerOff()
-		{
-			Debug.Console(DebugVerbose, this, "CallingPowerOff");
-			// If a display has unreliable-power off feedback, just override this and
-			// remove this check.
-			if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
-			{
-				//SendText(PowerControlOffCec1);
-				SendText(PowerControlOffCec2);
-				_isCoolingDown = true;
-				_powerIsOn = false;
-				CurrentInputNumber = 0;
-
-				InputNumberFeedback.FireUpdate();
-				PowerIsOnFeedback.FireUpdate();
-				IsCoolingDownFeedback.FireUpdate();
-				// Fake cool-down cycle
-				CooldownTimer = new CTimer(o =>
-				{
-					_isCoolingDown = false;
-					IsCoolingDownFeedback.FireUpdate();
-				}, CooldownTime);
-			}
-		}
-
-
-		private void UpdateBooleanFeedback()
-		{
-			try
-			{
-				foreach (var item in InputFeedback)
-				{
-					item.FireUpdate();
-				}
-			}
-			catch (Exception e)
-			{
-				Debug.Console(DebugTrace, this, "Exception Here - {0}", e.Message);
-			}
-		}
-
-
-		/// <summary>
-		/// PowerToggle
-		/// </summary>
-		public override void PowerToggle()
-		{
-			if (PowerIsOnFeedback.BoolValue && !IsWarmingUpFeedback.BoolValue)
-			{
-				PowerOff();
-			}
-			else if (!PowerIsOnFeedback.BoolValue && !IsCoolingDownFeedback.BoolValue)
-			{
-				PowerOn();
-			}
-		}
-
-		/// <summary>
-		/// Input hdmi 1
-		/// </summary>
-		public void InputHdmi1()
-		{
-			SendText(InputControlHdmi1);
-		}
-
-		/// <summary>
-		/// Input hdmi 2
-		/// </summary>
-		public void InputHdmi2()
-		{
-			SendText(InputControlHdmi2);
-		}
-
-		/// <summary>
-		/// Input hdmi 3
-		/// </summary>
-		public void InputHdmi3()
-		{
-			SendText(InputControlHdmi3);
-		}
-
-		/// <summary>
-
-		/// </summary>
-		public void InputHdmi4()
-		{
-			SendText(InputControlHdmi4);
-		}
-
-		/// <summary>
-		/// Executes a switch, turning on display if necessary.
-		/// </summary>
-		/// <param name="selector"></param>
-		public override void ExecuteSwitch(object selector)
-		{
-			//if (!(selector is Action))
-			//    Debug.Console(DebugNotice, this, "WARNING: ExecuteSwitch cannot handle type {0}", selector.GetType());
-
-			if (_powerIsOn)
-			{
-				var action = selector as Action;
-				if (action != null)
-				{
-					action();
-				}
-			}
-			else // if power is off, wait until we get on FB to send it. 
-			{
-				// One-time event handler to wait for power on before executing switch
-				EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
-				handler = (o, a) =>
-				{
-					if (_isWarmingUp)
-					{
-						return;
-					}
-
-					IsWarmingUpFeedback.OutputChange -= handler;
-					var action = selector as Action;
-					if (action != null)
-					{
-						action();
-					}
-				};
-				IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on FB
-				PowerOn();
-			}
-		}
 
 
 		#region DebugLevels
