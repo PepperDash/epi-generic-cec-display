@@ -11,7 +11,7 @@ using PepperDash.Essentials.Devices.Displays;
 
 namespace GenericCecDisplay
 {
-	public class GenericCecDisplayController : TwoWayDisplayBase, IBridgeAdvanced, ICommunicationMonitor,
+	public class GenericCecDisplayController : TwoWayDisplayBase, IBridgeAdvanced, ICommunicationMonitor, 
 		IInputHdmi1, IInputHdmi2, IInputHdmi3, IInputHdmi4, IBasicVolumeControls
 	{
 		/// <summary>
@@ -226,30 +226,45 @@ namespace GenericCecDisplay
 			if (Debug.Level == DebugVerbose)
 				Debug.Console(DebugVerbose, this, "ProcessResponse: '{0}'", ComTextHelper.GetEscapedText(message));
 
+
+			if (message.Length < 3)
+			{
+				Debug.Console(DebugVerbose, this, "ProcessResponse: message.Length '{0}' is less than required", message.Length);
+				return;
+			}
+
 			// power response prefix, message[2] == state
-			if (message[0] != 0x40 || message[1] != 0x90) return;
+			if (message[0] != 0x04 && message[1] != 0x90)
+			{
+				Debug.Console(DebugVerbose, this, "ProcessResponse: unhandled response '{0}'", ComTextHelper.GetEscapedText(message));
+				return;
+			}
 			switch (message[2])
 			{
 					// power on
 				case 0x00:
 				{
+					Debug.Console(DebugVerbose, this, "ProcessResponse: message[2] '{0}' = power on", message[2]);
 					PowerIsOn = true;
 					break;
 				}
 					// power off
 				case 0x01:
 				{
+					Debug.Console(DebugVerbose, this, "ProcessResponse: message[2] '{0}' = power off", message[2]);
 					PowerIsOn = false;
 					break;
 				}
 					// warming
 				case 0x02:
 				{
+					Debug.Console(DebugVerbose, this, "ProcessResponse: message[2] '{0}' = warming", message[2]);
 					break;
 				}
 					// cooling
 				case 0x03:
 				{
+					Debug.Console(DebugVerbose, this, "ProcessResponse: message[2] '{0}' = cooling", message[2]);
 					break;
 				}
 				default:
@@ -324,8 +339,12 @@ namespace GenericCecDisplay
 		/// <param name="selector"></param>
 		public override void ExecuteSwitch(object selector)
 		{
+			Debug.Console(DebugNotice, this, "ExecuteSwitch: selector '{0}'", selector);
+
 			if (PowerIsOn)
 			{
+				Debug.Console(DebugNotice, this, "ExecuteSwitch: if - PowerIsOn {0}", PowerIsOn);
+
 				var action = selector as Action;
 				Debug.Console(DebugNotice, this, "ExecuteSwitch: action is {0}", action == null ? "null" : "not null");
 				if (action != null)
@@ -334,6 +353,8 @@ namespace GenericCecDisplay
 			// if power is off, wait until we get on FB to send it
 			else
 			{
+				Debug.Console(DebugNotice, this, "ExecuteSwitch: else - PowerIsOn {0}", PowerIsOn);
+
 				// one-time event handler to wait for power on before executing switch 
 				EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
 				handler = (sender, args) =>
@@ -350,6 +371,8 @@ namespace GenericCecDisplay
 				IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on fb
 				PowerOn();
 			}
+
+			PowerGet();
 		}
 
 		#region Power
@@ -365,7 +388,11 @@ namespace GenericCecDisplay
 		/// </summary>
 		public bool PowerIsOn
 		{
-			get { return _powerIsOn; }
+			get
+			{
+				Debug.Console(DebugVerbose, this, "PowerIsOn: {0}", _powerIsOn); 
+				return _powerIsOn;
+			}
 			set
 			{
 				if (_powerIsOn == value)
@@ -374,7 +401,8 @@ namespace GenericCecDisplay
 				}
 
 				_powerIsOn = value;
-				PowerIsOnFeedback.FireUpdate();
+				Debug.Console(DebugVerbose, this, "PowerIsOn: {0}", _powerIsOn);
+				PowerIsOnFeedback.FireUpdate();				
 			}
 		}
 
@@ -383,7 +411,11 @@ namespace GenericCecDisplay
 		/// </summary>
 		public bool IsWarmingUp
 		{
-			get { return _isWarmingUp; }
+			get
+			{
+				Debug.Console(DebugVerbose, this, "IsWarmingUp: {0}", _isWarmingUp);
+				return _isWarmingUp;
+			}
 			set
 			{
 				_isWarmingUp = value;
@@ -395,8 +427,11 @@ namespace GenericCecDisplay
 					{
 						_isWarmingUp = false;
 						IsWarmingUpFeedback.FireUpdate();
+						PowerGet();
 					}, WarmupTime);
 				}
+
+				Debug.Console(DebugVerbose, this, "IsWarmingUp: {0}", _isWarmingUp);
 			}
 		}
 
@@ -405,7 +440,11 @@ namespace GenericCecDisplay
 		/// </summary>
 		public bool IsCoolingDown
 		{
-			get { return _isCoolingDown; }
+			get
+			{
+				Debug.Console(DebugVerbose, this, "IsCoolingDown: {0}", _isCoolingDown); 
+				return _isCoolingDown;
+			}
 			set
 			{
 				_isCoolingDown = value;
@@ -417,8 +456,11 @@ namespace GenericCecDisplay
 					{
 						_isCoolingDown = false;
 						IsCoolingDownFeedback.FireUpdate();
+						PowerGet();
 					}, CooldownTime);
 				}
+
+				Debug.Console(DebugVerbose, this, "IsCoolingDown: {0}", _isCoolingDown);
 			}
 		}
 
@@ -442,7 +484,14 @@ namespace GenericCecDisplay
 		/// </summary>
 		public override void PowerOn()
 		{
-			if (IsWarmingUp || IsCoolingDown) return;
+			Debug.Console(DebugVerbose, this, "PowerOn: PowerIsOn {0} | _cecPowerSet {1}", PowerIsOn, _cecPowerSet);
+
+			if (IsWarmingUp || IsCoolingDown)
+			{
+				Debug.Console(DebugVerbose, this, "PowerOn: IsWarmingUp {0} || IsCoolingDown {1} > return", IsWarmingUp,
+					IsCoolingDown);
+				return;
+			}
 
 			if (!PowerIsOn) IsWarmingUp = true;
 
@@ -458,7 +507,14 @@ namespace GenericCecDisplay
 		/// </summary>
 		public override void PowerOff()
 		{
-			if (IsWarmingUp || IsCoolingDown) return;
+			Debug.Console(DebugVerbose, this, "PowerOff: PowerIsOn {0} | _cecPowerSet {1}", PowerIsOn, _cecPowerSet);
+
+			if (IsWarmingUp || IsCoolingDown)
+			{
+				Debug.Console(DebugVerbose, this, "PowerOff: IsWarmingUp {0} || IsCoolingDown {1} > return", IsWarmingUp,
+					IsCoolingDown);
+				return;
+			}
 
 			if (PowerIsOn) IsCoolingDown = true;
 
@@ -477,12 +533,31 @@ namespace GenericCecDisplay
 			SendBytes(CecCommands.PowerStatus);
 		}
 
+		/// <summary>
+		/// Changes cec power commands, currently supports 1 || 2
+		/// </summary>
+		/// <param name="set"></param>
+		public void PowerCecSet(uint set)
+		{
+			if (set == 0 || set > 2)
+			{
+				Debug.Console(DebugVerbose, this, "PowerCecSet: _cecPowerSet {0}", _cecPowerSet);
+				return;
+			}
+
+			_cecPowerSet = set;
+
+			Debug.Console(DebugVerbose, this, "PowerCecSet: _cecPowerSet {0}", _cecPowerSet);
+		}
+
 
 		/// <summary>
 		/// Toggle current power state for device
 		/// </summary>
 		public override void PowerToggle()
 		{
+			Debug.Console(DebugVerbose, this, "PowerToggle: PowerIsOn {0}", PowerIsOn);
+
 			if (PowerIsOn)
 			{
 				PowerOff();
@@ -747,38 +822,9 @@ namespace GenericCecDisplay
 
 
 
-
-		#region Volume & Mute
-
-
-
-		#endregion
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 		#region IBasicVolumeWithFeedback Members
 
-		private bool _isMuted;
-		private bool _lastCommandSentWasVolume;
-		private int _lastVolumeSent;
+		private bool _isMuted;		
 
 		/// <summary>
 		/// Volume level feedback property
@@ -796,15 +842,16 @@ namespace GenericCecDisplay
 		/// <param name="pressRelease"></param>
 		public void VolumeUp(bool pressRelease)
 		{
-			if (pressRelease)
-			{
-				// _volumeDecrementer.Stop()
-			}
-			else
-			{
-				//_volumeIncrementer.StatUp();
-				SendBytes(CecCommands.VolumeUp);
-			}
+			//if (pressRelease)
+			//{
+			//    // _volumeDecrementer.Stop()
+			//}
+			//else
+			//{
+			//    //_volumeIncrementer.StatUp();				
+			//}
+
+			SendBytes(CecCommands.VolumeUp);
 		}
 
 		/// <summary>
@@ -813,15 +860,17 @@ namespace GenericCecDisplay
 		/// <param name="pressRelease"></param>
 		public void VolumeDown(bool pressRelease)
 		{
-			if (pressRelease)
-			{
-				// _volumeIncrementer.Stop(); 
-			}
-			else
-			{
-				//_volumeIncrementer.StartDown();
-				SendBytes(CecCommands.VolumeDown);
-			}
+			//if (pressRelease)
+			//{
+			//    // _volumeIncrementer.Stop(); 				
+			//}
+			//else
+			//{
+			//    //_volumeIncrementer.StartDown();
+				
+			//}
+
+			SendBytes(CecCommands.VolumeDown);
 		}
 
 

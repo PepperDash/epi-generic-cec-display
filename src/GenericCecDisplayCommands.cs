@@ -20,6 +20,7 @@ namespace GenericCecDisplay
 		 */
 
 		public static byte[] PowerStatus = { 0x40, 0x8F };
+
 		public static byte[] PowerToggle = { 0x40, 0x44, 0x6B };
 		public static byte[] PowerOnCec1 = { 0x40, 0x44, 0x6D };
 		public static byte[] PowerOffCec1 = { 0x40, 0x44, 0x6C };
@@ -32,8 +33,8 @@ namespace GenericCecDisplay
 
 		public static byte[] PowerOnFb = { 0x04, 0x90, 0x00 };
 		public static byte[] PowerOffFb = { 0x04, 0x90, 0x01 };
-		public static byte[] PowerWarmingFb = { 0x40, 0x90, 0x02 };
-		public static byte[] PowerCoolingFb = { 0x40, 0x90, 0x03 };
+		public static byte[] PowerWarmingFb = { 0x04, 0x90, 0x02 };
+		public static byte[] PowerCoolingFb = { 0x04, 0x90, 0x03 };
 
 
 
