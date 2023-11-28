@@ -4,16 +4,7 @@ namespace GenericCecDisplay
 {
 	public class GenericCecDisplayPropertiesConfig
 	{
-		[JsonProperty("id")]
-		public string Id { get; set; }
-
-        [JsonProperty("volumeUpperLimit")]
-        public int VolumeUpperLimit { get; set; }
-
-        [JsonProperty("volumeLowerLimit")]
-        public int VolumeLowerLimit { get; set; }
-
-        [JsonProperty("pollIntervalMs")]
+		[JsonProperty("pollIntervalMs")]
         public long PollIntervalMs { get; set; }
 
         [JsonProperty("coolingTimeMs")]
@@ -21,5 +12,8 @@ namespace GenericCecDisplay
 
         [JsonProperty("warmingTimeMs")]
         public uint WarmingTimeMs { get; set; }
+
+		[JsonProperty("cecPowerSet")]
+		public uint CecPowerSet { get; set; }
 	}
 }
