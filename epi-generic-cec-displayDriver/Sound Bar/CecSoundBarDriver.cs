@@ -110,143 +110,19 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         #region Command Constants
 
         /// <summary>
-		/// QUERY_POWER_OSC	\x40\x8F
-        /// </summary>
-		public const string PowerStatusCmd = "\x40\x8F";
-
-        /// <summary>
-        /// Gets/sets the power state
-        /// </summary>
-		public const string PowerControlToggle = "\x40\x44\x6D";
-
-        /// <summary>
         /// Power control on 
         /// </summary>
-        public const string PowerControlOn = "\x40\x44\x6D";
+        public const string PowerControlOn = "\x4F\x82\x11\x00"; //Note, this is for "Active Source HDMI", we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
 
         /// <summary>
         /// Power control off
         /// </summary>
-		public const string PowerControlOff = "\x40\x36";
-
-        /// <summary>
-        /// Volume mute control data1 - on 
-        /// </summary>
-        public const byte VolumeMuteControlOn = 0x01;
-
-        /// <summary>
-        /// Volume mute control data1 - off
-        /// </summary>
-        public const byte VolumeMuteControlOff = 0x00;
-
-
-		/*https://groups.io/g/crestron/topic/35798610
-		 * https://support.crestron.com/app/answers/detail/a_id/5633/kw/CEC
-		 * HDMI 1 \x4F\x82\x10\x00 tested
-				HDMI 2 \x4F\x82\x20\x00 tested
-				HDMI 3 \x4F\x82\x30\x00 tested
-				HDMI 4 \x4F\x82\x40\x00 tested
-				HDMI 5 \x4F\x82\x50\x00 not tested
-				HDMI 6 \x4F\x82\x60\x00 not tested
-		 */
-
-
-
-
-
-        /// <summary>
-        /// Input source control data1 - HDMI1
-        /// </summary>
-        public const string InputControlHdmi1 = "\x4F\x82\x10\x00";
-
-        /// <summary>
-        /// Input source control data1 - HDMI2
-        /// </summary>
-		public const string InputControlHdmi2 = "\x4F\x82\x20\x00";
-
-        /// <summary>
-        /// Input source control data1 - HDMI3
-        /// </summary>
-		public const string InputControlHdmi3 = "\x4F\x82\x30\x00";
-
-        /// <summary>
-        /// Input source control data1 - HDMI4
-        /// </summary>
-		public const string InputControlHdmi4 = "\x4F\x82\x40\x00";
-
-        /// <summary>
-        /// Input source control data1 - TV1
-        /// </summary>
-        public const byte InputControlTv1 = 0x40;
-
-
-
-
-
-        /// <summary>
-        /// Volume increment/decrement control data1 - up
-        /// </summary>
-        public const byte VolumeAdjustUp = 0x00;
-
-        /// <summary>
-        /// Volume increment/decrement control data1 - down
-        /// </summary>
-        public const byte VolumeAdjustDown = 0x01;
-
-        /// <summary>
-        /// Virtual remote control (Cmd: 0xB0) pdf pg. 81
-        /// Set only, emulates the IR remote
-        /// </summary>
-        public const byte VirtualRemoteCmd = 0xB0;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Menu (0x1A)
-        /// </summary>
-        public const byte VirtualRemoteMenu = 0x1A;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Up (0x60)
-        /// </summary>
-        public const byte VirtualRemoteUp = 0x60;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Down (0x61)
-        /// </summary>
-        public const byte VirtualRemoteDown = 0x61;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Left (0x65)
-        /// </summary>
-        public const byte VirtualRemoteLeft = 0x65;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Right (0x62)
-        /// </summary>
-        public const byte VirtualRemoteRight = 0x62;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Dpad Selct (0x68)
-        /// </summary>
-        public const byte VirtualRemoteSelect = 0x68;
-
-        /// <summary>
-        /// Virtual remote control data1 (keyCode) - Exit (0x2D)
-        /// </summary>
-        public const byte VirtualRemoteExit = 0x2D;
-
+        public const string PowerControlOff = "\x1F\x36";
 
 
         #endregion
 
-       
-
-
-
       
-       
-       
-
-       
         
 
         #region IBridgeAdvanced Members
@@ -506,34 +382,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         }
 
         /// <summary>
-        public void InputHdmi1()
-        {
-            Communication.SendText(InputControlHdmi1);
-        }
-
-        /// <summary>
-
-        /// </summary>
-        public void InputHdmi2()
-        {
-			Communication.SendText(InputControlHdmi2);
-        }
-
-        /// <summary>
-
-        /// </summary>
-        public void InputHdmi3()
-        {
-			Communication.SendText(InputControlHdmi3);
-        }
-
-        /// <summary>
-
-        /// </summary>
-        public void InputHdmi4()
-        {
-			Communication.SendText(InputControlHdmi4);
-        }
+       
 
  
 
