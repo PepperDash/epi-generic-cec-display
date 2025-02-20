@@ -23,12 +23,9 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         public const int InputPowerOff = 102;
         public static List<string> InputKeys = new List<string>();
         private readonly CecSoundBarPropertiesConfig _config;
-        private readonly uint _coolingTimeMs;
 
-        private readonly int _lowerLimit;
         private readonly long _pollIntervalMs;
-        private readonly int _upperLimit;
-        private readonly uint _warmingTimeMs;
+ 
 
 
         public List<BoolFeedback> InputFeedback;
@@ -55,12 +52,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 		}
 		private int _CurrentInputNumber;
 
-        private bool _isCoolingDown;
-        private bool _isMuted;
         private bool _isPoweringOnIgnorePowerFb;
-        private bool _isWarmingUp;
-        private bool _lastCommandSentWasVolume;
-        private int _lastVolumeSent;
+
         private CCriticalSection _parseLock = new CCriticalSection();
         private bool _powerIsOn;
 
@@ -84,11 +77,12 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             Id = _config.Id == null ? (byte) 0x01 : Convert.ToByte(_config.Id, 16);
 
 
-            _upperLimit = _config.volumeUpperLimit;
-            _lowerLimit = _config.volumeLowerLimit;
+            
             _pollIntervalMs = _config.pollIntervalMs;
-            _coolingTimeMs = _config.coolingTimeMs;
-            _warmingTimeMs = _config.warmingTimeMs;
+            
+
+
+            PowerIsOnFeedback = new BoolFeedback(() => _powerIsOn);
 
             Init();
         }
@@ -100,20 +94,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         
 
 
-        protected override Func<bool> PowerIsOnFeedbackFunc
-        {
-            get { return () => _powerIsOn; }
-        }
+       
 
-        protected override Func<bool> IsCoolingDownFeedbackFunc
-        {
-            get { return () => _isCoolingDown; }
-        }
-
-        protected override Func<bool> IsWarmingUpFeedbackFunc
-        {
-            get { return () => _isWarmingUp; }
-        }
 
         protected override Func<string> CurrentInputFeedbackFunc
         {
@@ -256,83 +238,16 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
         #endregion
 
-        #region IBasicVolumeWithFeedback Members
+       
 
 
 
-        /// <summary>
-        /// Volume level feedback property
-        /// </summary>
-        public IntFeedback VolumeLevelFeedback { get; private set; }
+      
+       
+       
 
-        /// <summary>
-        /// volume mte feedback property
-        /// </summary>
-        public BoolFeedback MuteFeedback { get; private set; }
-
-        /// <summary>
-        /// </summary>
-        public void MuteOff()
-        {
-
-        }
-
-        /// <summary>
-        /// </summary>
-        public void MuteOn()
-        {
-
-        }
-
-        /// <summary>
-        /// Mute toggle
-        /// </summary>
-        public void MuteToggle()
-        {
-            if (_isMuted)
-            {
-                MuteOff();
-            }
-            else
-            {
-                MuteOn();
-            }
-        }
-
-        /// <summary>
-        /// Volume down (decrement)
-        /// </summary>
-        /// <param name="pressRelease"></param>
-        public void VolumeDown(bool pressRelease)
-        {
-            if (pressRelease)
-            {
-                // _volumeIncrementer.StartDown();
-                
-            }
-            else
-            {
-                // _volumeIncrementer.Stop();
-            }
-        }
-
-        /// <summary>
-        /// Volume up (increment)
-        /// </summary>
-        /// <param name="pressRelease"></param>
-        public void VolumeUp(bool pressRelease)
-        {
-            if (pressRelease)
-            {
-                
-            }
-            else
-            {
-
-            }
-        }
-
-        #endregion
+       
+        
 
         #region IBridgeAdvanced Members
 
@@ -507,25 +422,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             PowerIsOnFeedback.FireUpdate();
         }
 
-        // <summary>
-        // Volume feedback
-        // </summary>
-
-
-        /// <summary>
-        /// Mute feedback
-        /// </summary>
-        private void UpdateMuteFb(byte b)
-        {
-            var newMute = b == 1;
-
-            if (newMute == _isMuted)
-            {
-                return;
-            }
-            _isMuted = newMute;
-            MuteFeedback.FireUpdate();
-        }
+        
 
         
         
@@ -640,7 +537,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
  
 
-
+       
 
 
 
@@ -669,10 +566,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                 EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
                 handler = (o, a) =>
                 {
-                    if (_isWarmingUp)
-                    {
-                        return;
-                    }
+                    
 
                    
                     var action = selector as Action;
@@ -696,6 +590,10 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             get;
             private set;
         }
+
+            /*
+             * = new BoolFeedback(() => _powerIsOn);*/
+      
 
         #endregion
 
