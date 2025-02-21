@@ -25,32 +25,32 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         private readonly CecSoundBarPropertiesConfig _config;
 
         private readonly long _pollIntervalMs;
- 
+
 
 
         public List<BoolFeedback> InputFeedback;
 
-        
+
         private RoutingInputPort _currentInputPort;
-        
-        private byte[] _incomingBuffer = {};
 
-		public IntFeedback InputNumberFeedback;
+        private byte[] _incomingBuffer = { };
 
-		public int CurrentInputNumber
-		{
-			get
-			{
-				return _CurrentInputNumber;
-			}
-			private set
-			{
-				_CurrentInputNumber = value;
-				InputNumberFeedback.FireUpdate();
-				UpdateBooleanFeedback();
-			}
-		}
-		private int _CurrentInputNumber;
+        public IntFeedback InputNumberFeedback;
+
+        public int CurrentInputNumber
+        {
+            get
+            {
+                return _CurrentInputNumber;
+            }
+            private set
+            {
+                _CurrentInputNumber = value;
+                InputNumberFeedback.FireUpdate();
+                UpdateBooleanFeedback();
+            }
+        }
+        private int _CurrentInputNumber;
 
         private bool _isPoweringOnIgnorePowerFb;
 
@@ -74,13 +74,9 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             Communication.BytesReceived += Communication_BytesReceived;
             _config = config;
 
-            Id = _config.Id == null ? (byte) 0x01 : Convert.ToByte(_config.Id, 16);
+            Id = _config.Id == null ? (byte)0x01 : Convert.ToByte(_config.Id, 16);
 
-
-            
             _pollIntervalMs = _config.pollIntervalMs;
-            
-
 
             PowerIsOnFeedback = new BoolFeedback(() => _powerIsOn);
 
@@ -91,18 +87,11 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         public byte Id { get; private set; }
         public IntFeedback StatusFeedback { get; set; }
 
-        
-
-
-       
-
-
-       
 
         /// <summary>
         /// 
         /// </summary>
-        
+
 
         #region Command Constants
 
@@ -119,8 +108,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
         #endregion
 
-      
-        
+
+
 
         #region IBridgeAdvanced Members
 
@@ -131,7 +120,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <param name="joinStart"></param>
         /// <param name="joinMapKey"></param>
         /// <param name="bridge"></param>
-       
+
 
         #endregion
 
@@ -158,19 +147,15 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// </summary>
         /// <param name="port"></param>
         /// <param name="fbMatch"></param>
-        
+
 
         /// <summary>
         /// Initialize 
         /// </summary>
         private void Init()
         {
-           
 
             InitCommMonitor();
-
-
-
             StatusGet();
         }
 
@@ -185,7 +170,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
             DeviceManager.AddDevice(CommunicationMonitor);
 
-            StatusFeedback = new IntFeedback(() => (int) CommunicationMonitor.Status);
+            StatusFeedback = new IntFeedback(() => (int)CommunicationMonitor.Status);
 
             CommunicationMonitor.StatusChange += (sender, args) =>
             {
@@ -193,9 +178,6 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                 StatusFeedback.FireUpdate();
             };
         }
-
-        
-
 
         /// <summary>
         /// Custom activate
@@ -257,21 +239,18 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
             switch (command)
             {
-              
+
                 case 0x00:
-                {
-                    
-                    break;
-                }
-                 
+                    {
 
-
+                        break;
+                    }
 
                 default:
-                {
-                    Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
-                    break;
-                }
+                    {
+                        Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
+                        break;
+                    }
             }
         }
 
@@ -282,11 +261,11 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         private void UpdatePowerFb(byte powerByte)
         {
             var newVal = powerByte == 1;
-			if (!newVal)
-			{
-				CurrentInputNumber = 0;
-			}
-			if (newVal == _powerIsOn)
+            if (!newVal)
+            {
+                CurrentInputNumber = 0;
+            }
+            if (newVal == _powerIsOn)
             {
                 return;
             }
@@ -307,17 +286,12 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             }
         }
 
-        
-
-        
-        
-
         /// <summary>
         /// </summary>
         public void StatusGet()
         {
-			   Communication.SendText("\x40\x8F");
-            
+            Communication.SendText("\x40\x8F");
+
         }
 
         /// <summary>
@@ -327,14 +301,14 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         public void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
-			Debug.Console(2, this, "CallingPowerOn");
+            Debug.Console(2, this, "CallingPowerOn");
             Communication.SendText(PowerControlOn);
 
             if (PowerIsOnFeedback.BoolValue)
             {
                 return;
             }
-            
+
         }
 
         /// <summary>
@@ -344,18 +318,18 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         public void PowerOff()
         {
             _isPoweringOnIgnorePowerFb = false;
-			Debug.Console(2, this, "CallingPowerOff");
+            Debug.Console(2, this, "CallingPowerOff");
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
-          
-				Communication.SendText(PowerControlOff);
-                
-				CurrentInputNumber = 0;
-                
-                InputNumberFeedback.FireUpdate();
-                PowerIsOnFeedback.FireUpdate();
-                
-            
+
+            Communication.SendText(PowerControlOff);
+
+            CurrentInputNumber = 0;
+
+            InputNumberFeedback.FireUpdate();
+            PowerIsOnFeedback.FireUpdate();
+
+
         }
 
 
@@ -375,31 +349,16 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         }
 
 
-        /// <summary>		
-
-        /// </summary>
-        
-
- 
-
-       
-
-
-
-
-
-       
-
 
         #region IHasPowerControlWithFeedback Members
 
         public BoolFeedback PowerIsOnFeedback { get; private set; }
 
-           
-      
+
+
 
         #endregion
 
-       
+
     }
 }
