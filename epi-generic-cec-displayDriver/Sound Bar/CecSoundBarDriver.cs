@@ -97,10 +97,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
        
 
 
-        protected override Func<string> CurrentInputFeedbackFunc
-        {
-            get { return () => _currentInputPort.Key; }
-        }
+       
 
         /// <summary>
         /// 
@@ -298,6 +295,18 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
             PowerIsOnFeedback.FireUpdate();
         }
 
+        public void PowerToggle()
+        {
+            if (PowerIsOnFeedback.BoolValue)
+            {
+                PowerOff();
+            }
+            else if (!PowerIsOnFeedback.BoolValue)
+            {
+                PowerOn();
+            }
+        }
+
         
 
         
@@ -315,7 +324,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// Power on (Cmd: 0x11) pdf page 42 
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01][CS=0x00]
         /// </summary>
-        public override void PowerOn()
+        public void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
 			Debug.Console(2, this, "CallingPowerOn");
@@ -332,7 +341,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// Power off (Cmd: 0x11) pdf page 42 
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x00][CS=0x00]
         /// </summary>
-        public override void PowerOff()
+        public void PowerOff()
         {
             _isPoweringOnIgnorePowerFb = false;
 			Debug.Console(2, this, "CallingPowerOff");
@@ -369,20 +378,7 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
         /// <summary>		
 
         /// </summary>
-        public override void PowerToggle()
-        {
-            if (PowerIsOnFeedback.BoolValue)
-            {
-                PowerOff();
-            }
-            else if (!PowerIsOnFeedback.BoolValue)
-            {
-                PowerOn();
-            }
-        }
-
-        /// <summary>
-       
+        
 
  
 
@@ -392,56 +388,14 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
 
 
-        /// <summary>
-        /// Executes a switch, turning on display if necessary.
-        /// </summary>
-        /// <param name="selector"></param>
-        public override void ExecuteSwitch(object selector)
-        {
-            //if (!(selector is Action))
-            //    Debug.Console(1, this, "WARNING: ExecuteSwitch cannot handle type {0}", selector.GetType());
-
-            if (_powerIsOn)
-            {
-                var action = selector as Action;
-                if (action != null)
-                {
-                    action();
-                }
-            }
-            else // if power is off, wait until we get on FB to send it. 
-            {
-                // One-time event handler to wait for power on before executing switch
-                EventHandler<FeedbackEventArgs> handler = null; // necessary to allow reference inside lambda to handler
-                handler = (o, a) =>
-                {
-                    
-
-                   
-                    var action = selector as Action;
-                    if (action != null)
-                    {
-                        action();
-                    }
-                };
-               
-                PowerOn();
-            }
-        }
-
-
+       
 
 
         #region IHasPowerControlWithFeedback Members
 
-        BoolFeedback PowerIsOnFeedback
-        {
-            get;
-            private set;
-        }
+        public BoolFeedback PowerIsOnFeedback { get; private set; }
 
-            /*
-             * = new BoolFeedback(() => _powerIsOn);*/
+           
       
 
         #endregion
