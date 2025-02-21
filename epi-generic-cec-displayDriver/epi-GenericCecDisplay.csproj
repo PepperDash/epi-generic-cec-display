@@ -148,10 +148,10 @@
     <Compile Include="CecDisplayDriverConfigObject.cs" />
     <Compile Include="CecDisplayDriverControllerFactory.cs" />
     <Compile Include="CecDisplayDriverControllerJoinMap.cs" />
+    <Compile Include="Sound Bar\CecSoundBarConfigObject.cs" />
+    <Compile Include="Sound Bar\CecSoundBarControllerJoinMap.cs" />
     <Compile Include="Sound Bar\CecSoundBarDriver.cs" />
-    <Compile Include="Sound Bar\CecDisplayDriverConfigObject.cs" />
     <Compile Include="Sound Bar\CecSoundBarControllerFactory.cs" />
-    <Compile Include="Sound Bar\CecDisplayDriverControllerJoinMap.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Properties\ControlSystem.cfg" />
