@@ -584,6 +584,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                 _incomingBuffer.CopyTo(newBytes, 0);
                 e.Bytes.CopyTo(newBytes, _incomingBuffer.Length);
 
+                ParseMessage(newBytes);
+
                 // clear buffer
                 //_incomingBuffer = _incomingBuffer.Skip(_incomingBuffer.Length).ToArray();
 
@@ -621,6 +623,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                     
                     break;
                 }
+
+                 
                  
 
 
@@ -630,6 +634,12 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                     Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
                     break;
                 }
+            }
+
+            if (message[2] == 0x01 || message[2] == 0x00)
+            {
+                byte powerByte = message[2];
+                UpdatePowerFb(powerByte);
             }
         }
 
