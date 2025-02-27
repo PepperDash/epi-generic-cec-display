@@ -208,6 +208,8 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
                 _incomingBuffer.CopyTo(newBytes, 0);
                 e.Bytes.CopyTo(newBytes, _incomingBuffer.Length);
 
+                ParseMessage(newBytes);
+
                 // clear buffer
                 //_incomingBuffer = _incomingBuffer.Skip(_incomingBuffer.Length).ToArray();
 
@@ -229,28 +231,41 @@ namespace PepperDash.Plugin.Display.CecDisplayDriver
 
         private void ParseMessage(byte[] message)
         {
-            var command = message[5];
-
-            if (Debug.Level == 2)
             {
-                // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                Debug.Console(2, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
-            }
+                var command = message[5];
 
-            switch (command)
-            {
+                if (Debug.Level == 2)
+                {
+                    // This check is here to prevent following string format from building unnecessarily on level 0 or 1
+                    Debug.Console(2, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
+                }
 
-                case 0x00:
-                    {
+                switch (command)
+                {
 
-                        break;
-                    }
+                    case 0x00:
+                        {
 
-                default:
-                    {
-                        Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
-                        break;
-                    }
+                            break;
+                        }
+
+
+
+
+
+
+                    default:
+                        {
+                            Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
+                            break;
+                        }
+                }
+
+                if (message[2] == 0x01 || message[2] == 0x00)
+                {
+                    byte powerByte = message[2];
+                    UpdatePowerFb(powerByte);
+                }
             }
         }
 
