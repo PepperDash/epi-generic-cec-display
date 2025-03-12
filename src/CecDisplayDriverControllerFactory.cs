@@ -3,7 +3,7 @@ using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
 
-namespace PepperDash.Plugin.Display.CecDisplayDriver
+namespace PepperDash.Essentials.Plugin.Generic.Cec
 {
     public class CecDisplayDriverControllerFactory : EssentialsPluginDeviceFactory<CecDisplayDriverDisplayController>
     {

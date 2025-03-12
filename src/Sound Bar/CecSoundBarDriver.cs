@@ -1,21 +1,10 @@
-﻿// For Basic SIMPL# Classes
-// For Basic SIMPL#Pro classes
-
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Crestron.SimplSharp;
-using Crestron.SimplSharpPro.DeviceSupport;
-using Newtonsoft.Json;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
-using PepperDash.Essentials.Core.Bridges;
-using PepperDash.Essentials.Core.DeviceInfo;
-using PepperDash.Essentials.Core.Routing;
-using Feedback = PepperDash.Essentials.Core.Feedback;
 
-namespace PepperDash.Plugin.Display.CecDisplayDriver
+namespace PepperDash.Essentials.Plugin.Generic.Cec
 {
     public class CecSoundBarController : EssentialsDevice, ICommunicationMonitor, IHasPowerControlWithFeedback
     {

@@ -1,7 +1,6 @@
 ﻿using Newtonsoft.Json;
-using System;
 
-namespace PepperDash.Plugin.Display.CecDisplayDriver
+namespace PepperDash.Essentials.Plugin.Generic.Cec
 {
 	public class CecSoundBarPropertiesConfig
 	{

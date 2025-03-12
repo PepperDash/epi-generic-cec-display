@@ -5,7 +5,7 @@
 	</PropertyGroup>
 	<PropertyGroup>
 		<TargetFramework>net472</TargetFramework>
-		<RootNamespace>Pepperdash.Essentials.Plugin.CEC</RootNamespace>
+		<RootNamespace>Pepperdash.Essentials.Plugin.Generic.Cec</RootNamespace>
 		<Deterministic>false</Deterministic>
 		<AssemblyTitle>EPI.CEC</AssemblyTitle>
 		<Company>PepperDash Technologies</Company>
@@ -16,7 +16,7 @@
 		<InformationalVersion>$(Version)</InformationalVersion>
 		<OutputPath>4Series\bin\$(Configuration)\</OutputPath>
 		<Authors>PepperDash Technologies</Authors>
-		<PackageId>Pepperdash.Essentials.Plugins.CEC</PackageId>
+		<PackageId>Pepperdash.Essentials.Plugins.Generic.CEC</PackageId>
 		<PackageProjectUrl>https://github.com/PepperDash/epi-generic-cec-display.git</PackageProjectUrl>
 		<PackageTags>crestron 4series CEC</PackageTags>
 	</PropertyGroup>
