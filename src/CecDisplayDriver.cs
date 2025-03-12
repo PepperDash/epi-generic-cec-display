@@ -10,7 +10,7 @@ using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.Routing;
 using Feedback = PepperDash.Essentials.Core.Feedback;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec
+namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 {
     public class CecDisplayDriverDisplayController : TwoWayDisplayBase, IBasicVolumeControls, ICommunicationMonitor,
         IBridgeAdvanced

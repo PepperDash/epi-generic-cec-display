@@ -1,6 +1,6 @@
 ﻿using PepperDash.Essentials.Core.Bridges;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec
+namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 {
 	public class CecDisplayDriverControllerJoinMap : DisplayControllerJoinMap
 	{
