@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec
+namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 {
 	public class CecSoundBarPropertiesConfig
 	{

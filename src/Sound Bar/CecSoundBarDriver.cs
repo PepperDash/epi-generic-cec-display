@@ -4,7 +4,7 @@ using Crestron.SimplSharp;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec
+namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 {
     public class CecSoundBarController : EssentialsDevice, ICommunicationMonitor, IHasPowerControlWithFeedback
     {
