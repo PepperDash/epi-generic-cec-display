@@ -5,7 +5,7 @@
 	</PropertyGroup>
 	<PropertyGroup>
 		<TargetFramework>net472</TargetFramework>
-		<RootNamespace>Pepperdash.Essentials.Plugins.CEC</RootNamespace>
+		<RootNamespace>Pepperdash.Essentials.Plugin.CEC</RootNamespace>
 		<Deterministic>false</Deterministic>
 		<AssemblyTitle>EPI.CEC</AssemblyTitle>
 		<Company>PepperDash Technologies</Company>

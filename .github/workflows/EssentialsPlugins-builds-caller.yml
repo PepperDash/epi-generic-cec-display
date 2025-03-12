@@ -8,7 +8,8 @@ on:
 jobs:
   getVersion:
     uses: PepperDash/workflow-templates/.github/workflows/essentialsplugins-getversion.yml@main
-    secrets: inherit
+    secrets: inherit    
+  
   build-3Series:  
     uses: PepperDash/workflow-templates/.github/workflows/essentialsplugins-3Series-builds.yml@main
     secrets: inherit
@@ -19,8 +20,10 @@ jobs:
       version: ${{ needs.getVersion.outputs.version }}
       tag: ${{ needs.getVersion.outputs.tag }}
       channel: ${{ needs.getVersion.outputs.channel }}
+  
   build-4Series:
     uses: PepperDash/workflow-templates/.github/workflows/essentialsplugins-4Series-builds.yml@main
+    # uses: PepperDash/workflow-templates/.github/workflows/essentialsplugins-4Series-builds.yml@development
     secrets: inherit
     needs: getVersion
     if: needs.getVersion.outputs.newVersion == 'true'
