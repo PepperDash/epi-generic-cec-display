@@ -5,7 +5,7 @@ using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
 using Serilog.Events;
 
-namespace PepperDash.Plugin.Display.CecDisplayDriver
+namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 {
     public class CecSoundBarControllerFactory : EssentialsPluginDeviceFactory<CecSoundBarController>
     {
