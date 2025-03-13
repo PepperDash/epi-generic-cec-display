@@ -1,42 +1,52 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
+using Serilog.Events;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
+namespace PepperDash.Plugin.Display.CecDisplayDriver
 {
     public class CecSoundBarControllerFactory : EssentialsPluginDeviceFactory<CecSoundBarController>
     {
         public CecSoundBarControllerFactory()
         {
-			MinimumEssentialsFrameworkVersion = "1.6.7";
+			MinimumEssentialsFrameworkVersion = "2.0.0";
             TypeNames = new List<string> {"GenericCECSoundbar"};
         }
-
-        #region Overrides of EssentialsDeviceFactory<SamsungMdcDisplayController>
-
         public override EssentialsDevice BuildDevice(DeviceConfig dc)
         {
+            //Debug.LogMessage(LogEventLevel.Information, "Building CEC Soundbar {key}", null, dc.Key);
 
-            var comms = CommFactory.CreateCommForDevice(dc);
+            IBasicCommunication comms;
+            try
+            {
+                comms = CommFactory.CreateCommForDevice(dc);
+            }
+            catch(Exception ex)
+            {
+                Debug.LogMessage(ex, "Exception getting comms");
+                comms = null;
+            }
 
             if (comms == null)
             {
-                Debug.Console(0, Debug.ErrorLogLevel.Error, "Unable to create comms for device {0}", dc.Key);
+                Debug.LogMessage(LogEventLevel.Error, "Unable to create comms for device {key}", null, dc.Key);
                 return null;
             }
-
-            var config = dc.Properties.ToObject<CecSoundBarPropertiesConfig>();
-
-            if (config != null)
+            try
             {
+                var config = dc.Properties.ToObject<CecSoundBarPropertiesConfig>();
+
+                
                 return new CecSoundBarController(dc.Key, dc.Name, config, comms);
+                
             }
-
-            Debug.Console(0, Debug.ErrorLogLevel.Error, "Unable to deserialize config for device {0}", dc.Key);
-            return null;
-        }
-
-        #endregion
+            catch (Exception ex)
+            {
+                Debug.LogMessage(ex, "Unable to create comms for device {key}", null, dc.Key);
+                return null;
+            }
+        }        
     }
 }
