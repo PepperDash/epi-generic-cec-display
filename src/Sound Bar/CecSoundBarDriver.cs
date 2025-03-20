@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Crestron.SimplSharp;
 using PepperDash.Core;
+using PepperDash.Core.Logging;
 using PepperDash.Essentials.Core;
 
 namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
@@ -190,26 +191,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         {
             try
             {
-                //Debug.Console(2, this, "Received from e:{0}", ComTextHelper.GetEscapedText(e.Bytes));
-
-                // Append the incoming bytes with whatever is in the buffer
-                var newBytes = new byte[_incomingBuffer.Length + e.Bytes.Length];
-                _incomingBuffer.CopyTo(newBytes, 0);
-                e.Bytes.CopyTo(newBytes, _incomingBuffer.Length);
-
-                ParseMessage(newBytes);
-
-                // clear buffer
-                //_incomingBuffer = _incomingBuffer.Skip(_incomingBuffer.Length).ToArray();
-
-                if (Debug.Level == 2)
-                {
-                    // This check is here to prevent
-                    // following string format from building unnecessarily on level 0 or 1
-                    Debug.Console(2, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
-                }
-
-
+                this.LogDebug($"here are the bytes received {e.Bytes.ToString()}");
+                ParseMessage(e.Bytes);
             }
             catch (Exception ex)
             {
@@ -220,42 +203,20 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
         private void ParseMessage(byte[] message)
         {
+            
+           this.LogDebug($"Parsing soundbar Response");
+
+            
+
+            if (message[0] == 0x5f && message[1] == 0x72) //this signifies a power response
             {
-                var command = message[5];
-
-                if (Debug.Level == 2)
-                {
-                    // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                    Debug.Console(2, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
-                }
-
-                switch (command)
-                {
-
-                    case 0x00:
-                        {
-
-                            break;
-                        }
-
-
-
-
-
-
-                    default:
-                        {
-                            Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
-                            break;
-                        }
-                }
-
-                if (message[2] == 0x01 || message[2] == 0x00)
-                {
+                
+                    this.LogDebug("CEC Soundbar Power Feedback Received");
                     byte powerByte = message[2];
                     UpdatePowerFb(powerByte);
-                }
+                
             }
+            
         }
 
 
@@ -263,19 +224,12 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// Power feedback
         /// </summary>
         private void UpdatePowerFb(byte powerByte)
-        {
-            var newVal = powerByte == 1;
-            if (!newVal)
-            {
-                CurrentInputNumber = 0;
-            }
-            if (newVal == _powerIsOn)
-            {
-                return;
-            }
-            _powerIsOn = newVal;
+        {        
+            _powerIsOn = powerByte == 0x01? true: false;
 
             PowerIsOnFeedback.FireUpdate();
+            this.LogInformation($"CEC Soundbar Feedback set {_powerIsOn}");
+
         }
 
         public void PowerToggle()
@@ -328,9 +282,6 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
             Communication.SendText(PowerControlOff);
 
-            CurrentInputNumber = 0;
-
-            InputNumberFeedback.FireUpdate();
             PowerIsOnFeedback.FireUpdate();
 
 
