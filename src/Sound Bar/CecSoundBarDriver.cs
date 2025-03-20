@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 using Crestron.SimplSharp;
 using PepperDash.Core;
 using PepperDash.Core.Logging;
@@ -191,7 +192,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         {
             try
             {
-                this.LogDebug($"here are the bytes received {e.Bytes.ToString()}");
+                this.LogDebug($"here are the bytes received {Encoding.UTF8.GetString(e.Bytes)}");
                 ParseMessage(e.Bytes);
             }
             catch (Exception ex)
@@ -213,8 +214,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 
                     this.LogDebug("CEC Soundbar Power Feedback Received");
                     byte powerByte = message[2];
-                    UpdatePowerFb(powerByte);
-                
+                    UpdatePowerFb(powerByte);               
             }
             
         }
@@ -248,7 +248,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void StatusGet()
         {
-            Communication.SendText("\x40\x8F");
+            Communication.SendText("\x45\x8F"); //Power Query
 
         }
 
