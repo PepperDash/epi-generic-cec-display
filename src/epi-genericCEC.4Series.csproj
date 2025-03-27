@@ -32,11 +32,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Remove="epi-GenericCEC.projectinfo" />
-		<None Remove="epi-GenericCecDisplay.projectinfo" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Include="PepperDashEssentials" Version="2.0.0-hotfix-2607" />
+		<PackageReference Include="PepperDashEssentials" Version="2.1.0" >
+			<ExcludeAssets>runtime</ExcludeAssets>
+		</PackageReference>
 	</ItemGroup>
 </Project>
