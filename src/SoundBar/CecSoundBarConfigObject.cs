@@ -10,5 +10,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         [JsonProperty("pollIntervalMs")]
         public long pollIntervalMs { get; set; }
 
-	}
+		[JsonProperty("powerOnUsesDiscreteCommand")]
+		public bool PowerOnUsesDiscreteCommand { get; set; }
+
+    }
 }

@@ -14,6 +14,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public const int InputPowerOff = 102;
         public static List<string> InputKeys = new List<string>();
         private readonly CecSoundBarPropertiesConfig _config;
+        private readonly bool _powerOnUsesDiscreteCommand;
 
         private readonly long _pollIntervalMs;
 
@@ -66,6 +67,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             _config = config;
 
             Id = _config.Id == null ? (byte)0x01 : Convert.ToByte(_config.Id, 16);
+            _powerOnUsesDiscreteCommand = _config.PowerOnUsesDiscreteCommand;
 
             _pollIntervalMs = _config.pollIntervalMs;
 
@@ -265,7 +267,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         {
             _isPoweringOnIgnorePowerFb = true;
             Debug.Console(2, this, "CallingPowerOn");
-            Communication.SendText(PowerControlOn);
+
+            string cmd = _powerOnUsesDiscreteCommand ? DiscretePowerControlOn : PowerControlOn;
+            Communication.SendText(cmd);
 
             if (PowerIsOnFeedback.BoolValue)
             {
