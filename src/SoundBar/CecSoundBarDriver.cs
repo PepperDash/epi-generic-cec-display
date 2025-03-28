@@ -87,11 +87,16 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         #region Command Constants
 
         /// <summary>
-        /// Power control on 
+        /// Power control on - when triggered switches to the display ARC input
         /// </summary>
         public const string PowerControlOn = "\x4F\x82\x11\x00"; //Note, this is for "Active Source HDMI", we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
 
         /// <summary>
+        /// Discrete power on - when triggered, should not switch to an input
+        /// </summary>
+        public const string DiscretePowerControlOn = "\x45\x44\x6D";
+        
+            /// <summary>
         /// Power control off
         /// </summary>
         public const string PowerControlOff = "\x1F\x36";
