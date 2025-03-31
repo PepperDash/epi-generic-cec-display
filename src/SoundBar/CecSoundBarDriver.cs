@@ -258,8 +258,14 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             _isPoweringOnIgnorePowerFb = true;
             Debug.Console(2, this, "CallingPowerOn");
 
-            string cmd = _powerOnUsesDiscreteCommand ? DiscretePowerControlOn : PowerControlOn;
-            SendText(cmd);
+            if (_powerOnUsesDiscreteCommand)
+            {
+                PowerOnDiscrete();
+            }
+            else
+            {
+                PowerOnOneTouch();
+            }
 
             if (PowerIsOnFeedback.BoolValue)
             {
@@ -282,6 +288,19 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             SendText(PowerControlOff);
 
             PowerIsOnFeedback.FireUpdate();
+        }
+
+        public void PowerOnDiscrete()
+        {
+            Debug.Console(2, this, "CallingPowerOnDiscrete");
+            SendText(DiscretePowerControlOn);
+        }
+
+
+        public void PowerOnOneTouch()
+        {
+            Debug.Console(2, this, "CallingPowerOnOneTouch");
+            SendText(PowerControlOn);
         }
 
 
