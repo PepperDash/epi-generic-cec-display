@@ -91,7 +91,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// <summary>
         /// Power control on - when triggered switches to the display ARC input
         /// </summary>
-        public const string PowerControlOn = "\x4F\x82\x11\x00"; //Note, this is for "Active Source HDMI", we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
+        public const string PowerControlOn = "\x4F\x82\x10\x00"; 
+        //Note, "\x11" == "Active Source HDMI"
+        // we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
 
         /// <summary>
         /// Discrete power on - when triggered, should not switch to an input
