@@ -126,25 +126,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public StatusMonitorBase CommunicationMonitor { get; private set; }
 
-        #endregion
-
-        //public static void LoadPlugin()
-        //{
-        //    DeviceFactory.AddFactoryForType("samsungmdcplugin", BuildDevice);
-        //}
-
-        //public static SamsungMdcDisplayController BuildDevice(DeviceConfig dc)
-        //{
-        //    //var config = JsonConvert.DeserializeObject<DeviceConfig>(dc.Properties.ToString());
-        //    var newMe = new SamsungMdcDisplayController(dc);
-        //    return newMe;
-        //}
-
-        /// <summary>
-        /// Add routing input port 
-        /// </summary>
-        /// <param name="port"></param>
-        /// <param name="fbMatch"></param>
+        #endregion        
 
 
         /// <summary>
@@ -188,6 +170,16 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 (o, a) => Debug.Console(2, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
             CommunicationMonitor.Start();
             return true;
+        }
+
+        /// <summary>
+        /// Send text to device
+        /// </summary>
+        /// <param name="txt"></param>
+        public void SendText(string txt)
+        {
+            this.LogDebug($"Sending text {ComTextHelper.GetEscapedText(txt)}");
+            Communication.SendText(txt);
         }
 
         /// <summary>
@@ -255,8 +247,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// </summary>
         public void StatusGet()
         {
-            Communication.SendText("\x45\x8F"); //Power Query
-
+            //Power Query
+            SendText("\x45\x8F");
         }
 
         /// <summary>
@@ -269,7 +261,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             Debug.Console(2, this, "CallingPowerOn");
 
             string cmd = _powerOnUsesDiscreteCommand ? DiscretePowerControlOn : PowerControlOn;
-            Communication.SendText(cmd);
+            SendText(cmd);
 
             if (PowerIsOnFeedback.BoolValue)
             {
@@ -289,11 +281,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
 
-            Communication.SendText(PowerControlOff);
+            SendText(PowerControlOff);
 
             PowerIsOnFeedback.FireUpdate();
-
-
         }
 
 
