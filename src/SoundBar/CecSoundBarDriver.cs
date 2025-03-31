@@ -97,8 +97,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Discrete power on - when triggered, should not switch to an input
         /// </summary>
         public const string DiscretePowerControlOn = "\x45\x44\x6D";
-        
-            /// <summary>
+
+        /// <summary>
         /// Power control off
         /// </summary>
         public const string PowerControlOff = "\x1F\x36";
@@ -203,19 +203,17 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private void ParseMessage(byte[] message)
         {
-            
-           this.LogDebug($"Parsing soundbar Response");
 
-            
+            this.LogDebug($"ParseMessage: {ComTextHelper.GetEscapedText(message)}");
 
             if (message[0] == 0x5f && message[1] == 0x72) //this signifies a power response
             {
-                
-                    this.LogDebug("CEC Soundbar Power Feedback Received");
-                    byte powerByte = message[2];
-                    UpdatePowerFb(powerByte);               
+
+                this.LogDebug("CEC Soundbar Power Feedback Received");
+                byte powerByte = message[2];
+                UpdatePowerFb(powerByte);
             }
-            
+
         }
 
 
@@ -223,8 +221,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Power feedback
         /// </summary>
         private void UpdatePowerFb(byte powerByte)
-        {        
-            _powerIsOn = powerByte == 0x01? true: false;
+        {
+            _powerIsOn = powerByte == 0x01 ? true : false;
 
             PowerIsOnFeedback.FireUpdate();
             this.LogInformation($"CEC Soundbar Feedback set {_powerIsOn}");
