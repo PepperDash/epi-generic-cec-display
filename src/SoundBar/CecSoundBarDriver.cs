@@ -91,22 +91,26 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// <summary>
         /// Power control on - when triggered switches to the display ARC input
         /// </summary>
-        public const string PowerControlOn = "\x4F\x82\x10\x00";
+        public const string PowerOnCmd = "\x4F\x82\x10\x00";
         //Note
         //  "\x10" == ?
         //  "\x11" == ARC input
         //  "\x12" == ?
         //  we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
 
+        public const string PowerOnOneTouchCmd = "\x4F\x82\x10\x00";
+        public const string PowerOnArcCmd = "\x4F\x82\x11\x00";
+        public const string PowerOnOpticalCmd = "\x4F\x82\x12\x00";
+
         /// <summary>
         /// Discrete power on - when triggered, should not switch to an input
         /// </summary>
-        public const string PowerControlOnDiscrete = "\x45\x44\x6D";
+        public const string PowerOnDiscreteCmd = "\x45\x44\x6D";
 
         /// <summary>
         /// Power control off
         /// </summary>
-        public const string PowerControlOff = "\x1F\x36";
+        public const string PowerOffCmd = "\x1F\x36";
 
 
         #endregion
@@ -290,7 +294,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
 
-            SendText(PowerControlOff);
+            SendText(PowerOffCmd);
 
             PowerIsOnFeedback.FireUpdate();
         }
@@ -298,14 +302,26 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void PowerOnDiscrete()
         {
             Debug.Console(2, this, "CallingPowerOnDiscrete");
-            SendText(PowerControlOnDiscrete);
+            SendText(PowerOnDiscreteCmd);
         }
 
 
         public void PowerOnOneTouch()
         {
             Debug.Console(2, this, "CallingPowerOnOneTouch");
-            SendText(PowerControlOn);
+            SendText(PowerOnOneTouchCmd);
+        }
+
+        public void PowerOnArc()
+        {
+            Debug.Console(2, this, "CallingPowerOnArc");
+            SendText(PowerOnArcCmd);
+        }
+
+        public void PowerOnOptical()
+        {
+            Debug.Console(2, this, "CallingPowerOnOptical");
+            SendText(PowerOnOpticalCmd);
         }
 
 
