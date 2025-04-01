@@ -99,8 +99,13 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         //  we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
 
         public const string PowerOnOneTouchCmd = "\x4F\x82\x10\x00";
+        // returns: \x5F\x72\x01
+
         public const string PowerOnArcCmd = "\x4F\x82\x11\x00";
+        // returns: \x5F\x72\x01 ** only when triggered after an OFF command
+
         public const string PowerOnOpticalCmd = "\x4F\x82\x12\x00";
+        // returns: \x5F\x72\x01 ** only when triggered after an OFF command
 
         /// <summary>
         /// Discrete power on - when triggered, should not switch to an input
@@ -111,7 +116,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Power control off
         /// </summary>
         public const string PowerOffCmd = "\x1F\x36";
-
+        // returns: \x5F\x72\x00
 
         #endregion
 
