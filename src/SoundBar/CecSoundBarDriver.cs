@@ -11,6 +11,20 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 {
     public class CecSoundBarController : EssentialsDevice, ICommunicationMonitor, IHasPowerControlWithFeedback
     {
+        public StatusMonitorBase CommunicationMonitor { get; private set; }
+        public IBasicCommunication Communication { get; private set; }
+        public IntFeedback StatusFeedback { get; set; }
+        public byte Id { get; private set; }
+
+
+        public const string PowerOffCmd = "\x1F\x36";
+        public const string PowerOnCmd = "\x4F\x82\x10\x00";        
+        public const string PowerOnTv = "\x4F\x82\x10\x00";        
+        public const string PowerOnArcCmd = "\x4F\x82\x11\x00";
+        public const string PowerOnOpticalCmd = "\x4F\x82\x12\x00";
+        public const string PowerOnHdmiCmd = "\x45\x70\x31\x00";
+        public const string GetAddressCmd = "\x45\x83";
+
         public const int InputPowerOn = 101;
         public const int InputPowerOff = 102;
         public static List<string> InputKeys = new List<string>();
@@ -20,9 +34,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         private readonly long _pollIntervalMs;
 
 
-
         public List<BoolFeedback> InputFeedback;
-
 
         private RoutingInputPort _currentInputPort;
 
@@ -50,6 +62,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         private CCriticalSection _parseLock = new CCriticalSection();
         private bool _powerIsOn;
 
+        public BoolFeedback PowerIsOnFeedback { get; private set; }
 
         /// <summary>
         /// Constructor for IBaseCommunication
@@ -73,111 +86,13 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             _pollIntervalMs = _config.pollIntervalMs;
 
             PowerIsOnFeedback = new BoolFeedback(() => _powerIsOn);
-
-            Init();
         }
 
-        public IBasicCommunication Communication { get; private set; }
-        public byte Id { get; private set; }
-        public IntFeedback StatusFeedback { get; set; }
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-
-
-        #region Command Constants
-
-        /// <summary>
-        /// Power control on - when triggered switches to the display ARC input
-        /// </summary>
-        public const string PowerOnCmd = "\x4F\x82\x10\x00";
-        //Note
-        //  "\x10" == ?
-        //  "\x11" == ARC input
-        //  "\x12" == ?
-        //  we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
-
-        public const string PowerOnTv = "\x4F\x82\x10\x00";
-        // returns: \x5F\x72\x01
-
-        public const string PowerOnArcCmd = "\x4F\x82\x11\x00";
-        // returns: \x5F\x72\x01 ** only when triggered after an OFF command
-
-        public const string PowerOnOpticalCmd = "\x4F\x82\x12\x00";
-        // returns: \x5F\x72\x01 ** only when triggered after an OFF command
-
-        /// <summary>
-        /// Discrete power on - when triggered, should not switch to an input
-        /// </summary>
-        public const string PowerOnDiscreteCmd = "\x45\x44\x6D";
-
-        public const string PowerOnHdmiCmd = "\x4F\x82\x41\x00";
-
-        //public const string PowerOnInputXCmd = "\x4F\x82\x{0:X02}\x00";
-        
-        public const string GetAddressCmd = "\x45\x83";
-
-        /// <summary>
-        /// Power control off
-        /// </summary>
-        public const string PowerOffCmd = "\x1F\x36";
-        // returns: \x5F\x72\x00
-
-        /*
-        in room, switched soundbar to HDMI from front panel and recieved the following
-        \x5F\x84\x40\x00\x05
-        \x5F\x87\x00\x00\x00
-
-        // returned when manually switched to HDMI input
-        \x5F\x80\x40\x00\41\x00
-
-        // get address
-        \x45\x83
-
-        */
-
-
-        #endregion
-
-
-
-
-        #region IBridgeAdvanced Members
-
-        /// <summary>
-        /// LinkToApi (bridge method)
-        /// </summary>
-        /// <param name="trilist"></param>
-        /// <param name="joinStart"></param>
-        /// <param name="joinMapKey"></param>
-        /// <param name="bridge"></param>
-
-
-        #endregion
-
-        #region ICommunicationMonitor Members
-
-        public StatusMonitorBase CommunicationMonitor { get; private set; }
-
-        #endregion        
-
-
-        /// <summary>
-        /// Initialize 
-        /// </summary>
-        private void Init()
+        public override void Initialize()
         {
+            Communication.Connect();
+            CommunicationMonitor.Start();
 
-            InitCommMonitor();
-            StatusGet();
-        }
-
-
-
-        private void InitCommMonitor()
-        {
             var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 30000;
 
             CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000,
@@ -192,6 +107,10 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
                 StatusFeedback.FireUpdate();
             };
+
+            StatusGet();
+
+            base.Initialize();
         }
 
         /// <summary>
@@ -217,7 +136,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             Communication.SendText(txt);
         }
 
-        public void SendHexAsText(string txt)
+        public void SendCecOMaticCommand(string txt)
         {            
             var hexBytes = txt.Split(':').Select(b => Convert.ToByte(b, 16)).ToArray();            
             // SendText(Encoding.UTF8.GetString(hexBytes));
@@ -306,7 +225,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             }
             else
             {
-                PowerOnOneTouch();
+                SendText(PowerOnCmd);
             }
 
             if (PowerIsOnFeedback.BoolValue)
@@ -335,43 +254,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void PowerOnDiscrete()
         {
             Debug.Console(2, this, "CallingPowerOnDiscrete");
-            SendText(PowerOnDiscreteCmd);
-        }
-
-
-        public void PowerOnOneTouch()
-        {
-            Debug.Console(2, this, "CallingPowerOnOneTouch");
-            SendText(PowerOnTv);
-        }
-
-        public void PowerOnArc()
-        {
-            Debug.Console(2, this, "CallingPowerOnArc");
-            SendText(PowerOnArcCmd);
-        }
-
-        public void PowerOnOptical()
-        {
-            Debug.Console(2, this, "CallingPowerOnOptical");
-            SendText(PowerOnOpticalCmd);
-        }
-
-
-        public void PowerOnHdmi()
-        {
-            Debug.Console(2, this, "CallingPowerOnHdmi");
             SendText(PowerOnHdmiCmd);
-        }
-
-        public void PowerOnInputX(string address, string inputNumber)
-        {
-            Debug.Console(2, this, "CallingPowerOnInputX");
-
-            // \x4F\x82\x{0:X02}\x00
-            //var cmd = "\x4F\x82\\x" + inputNumber + "\x00";
-            var cmd = string.Format("{0}\x82{1}\x00", Convert.ToByte(address, 16), Convert.ToByte(inputNumber, 16));
-            SendText(cmd);
         }
 
         public void GetAddress()
@@ -394,18 +277,5 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 Debug.Console(0, this, "Exception Here - {0}", e.Message);
             }
         }
-
-
-
-        #region IHasPowerControlWithFeedback Members
-
-        public BoolFeedback PowerIsOnFeedback { get; private set; }
-
-
-
-
-        #endregion
-
-
     }
 }
