@@ -356,10 +356,10 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             SendText(PowerOnHdmiCmd);
         }
 
-        public void PowerOnInputX(int inputNumber)
+        public void PowerOnInputX(string inputNumber)
         {
             Debug.Console(2, this, "CallingPOwerOnInputX");
-            SendText(PowerOnInputXCmd.Replace("FF", inputNumber.ToString("X")));
+            SendText(PowerOnInputXCmd.Replace("FF", inputNumber));
         }
 
         public void GetAddress()
