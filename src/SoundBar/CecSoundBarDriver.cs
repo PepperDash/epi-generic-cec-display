@@ -22,6 +22,10 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public const string PowerOnTv = "\x4F\x82\x10\x00";        
         public const string PowerOnArcCmd = "\x4F\x82\x11\x00";
         public const string PowerOnOpticalCmd = "\x4F\x82\x12\x00";
+        // Tested with JBL Boost 2.1 
+        // CEC-O-Matic > source: Playback 1 with Physical Address 3.1.0.0
+        //  - End-user features > System Audio Control > System Audio Mode request
+        // CEC-O-Matic > destinaiton: Audio System
         public const string PowerOnHdmiCmd = "\x45\x70\x31\x00";
         public const string GetAddressCmd = "\x45\x83";
 
