@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 using Crestron.SimplSharp;
 using PepperDash.Core;
 using PepperDash.Core.Logging;
@@ -218,23 +219,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public void SendHexAsText(string txt)
         {            
-            // var bytes = Encoding.UTF8.GetBytes(txt);
-            // var hex = BitConverter.ToString(bytes).Replace(':', '\x');
-            // if (!hex.StartsWith('\x'))
-            // {
-            //     hex = '\x' + hex;
-            // }
-            // SendText(hex);
-
-            var hexBytes = txt.Split(':');
-            StringBuilder escapedHex = new StringBuilder();
-
-            foreach (var hexByte in hexBytes)
-            {
-                escapedHex.AppendFormat("\\x{0}", hexByte);
-            }
-
-            SendText(escapedHex.ToString());
+            var hexBytes = txt.Split(':').Select(b => Convert.ToByte(b, 16)).ToArray();            
+            SendText(Encoding.UTF8.GetString(hexBytes));
         }
 
         /// <summary>
