@@ -98,7 +98,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         //  "\x12" == ?
         //  we need "Active Source Optical" or discrete Power On may also be "One Touch Play"
 
-        public const string PowerOnOneTouchCmd = "\x4F\x82\x10\x00";
+        public const string PowerOnTv = "\x4F\x82\x10\x00";
         // returns: \x5F\x72\x01
 
         public const string PowerOnArcCmd = "\x4F\x82\x11\x00";
@@ -112,11 +112,30 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// </summary>
         public const string PowerOnDiscreteCmd = "\x45\x44\x6D";
 
+        public const string PowerOnHdmiCmd = "\x4F\x82\x41\x00";
+
+        public const string POwerOnInputXCmd = "\x4F\x82\xNN\x00";
+        
+
         /// <summary>
         /// Power control off
         /// </summary>
         public const string PowerOffCmd = "\x1F\x36";
         // returns: \x5F\x72\x00
+
+        /*
+        in room, switched soundbar to HDMI from front panel and recieved the following
+        \x5F\x84\x40\x00\x05
+        \x5F\x87\x00\x00\x00
+
+        // returned when manually switched to HDMI input
+        \x5F\x80\x40\x00\41\x00
+
+        // get address
+        \x45\x83
+
+        */
+
 
         #endregion
 
@@ -314,7 +333,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void PowerOnOneTouch()
         {
             Debug.Console(2, this, "CallingPowerOnOneTouch");
-            SendText(PowerOnOneTouchCmd);
+            SendText(PowerOnTv);
         }
 
         public void PowerOnArc()
@@ -328,6 +347,20 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             Debug.Console(2, this, "CallingPowerOnOptical");
             SendText(PowerOnOpticalCmd);
         }
+
+
+        public void PowerOnHdmi()
+        {
+            Debug.Console(2, this, "CallingPowerOnHdmi");
+            SendText(PowerOnHdmiCmd);
+        }
+
+        public void POwerOnInputX(int inputNumber)
+        {
+            Debug.Console(2, this, "CallingPOwerOnInputX");
+            SendText(POwerOnInputXCmd.Replace("NN", inputNumber.ToString("X")));
+        }
+
 
 
         private void UpdateBooleanFeedback()
