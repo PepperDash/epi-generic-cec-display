@@ -114,8 +114,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public const string PowerOnHdmiCmd = "\x4F\x82\x41\x00";
 
-        public const string POwerOnInputXCmd = "\x4F\x82\xNN\x00";
+        public const string PowerOnInputXCmd = "\x4F\x82\xFF\x00";
         
+        public const string GetAddressCmd = "\x45\x83";
 
         /// <summary>
         /// Power control off
@@ -355,13 +356,17 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             SendText(PowerOnHdmiCmd);
         }
 
-        public void POwerOnInputX(int inputNumber)
+        public void PowerOnInputX(int inputNumber)
         {
             Debug.Console(2, this, "CallingPOwerOnInputX");
-            SendText(POwerOnInputXCmd.Replace("NN", inputNumber.ToString("X")));
+            SendText(PowerOnInputXCmd.Replace("FF", inputNumber.ToString("X")));
         }
 
-
+        public void GetAddress()
+        {
+            Debug.Console(2, this, "CallingGetAddress");
+            SendText(GetAddressCmd);
+        }
 
         private void UpdateBooleanFeedback()
         {
