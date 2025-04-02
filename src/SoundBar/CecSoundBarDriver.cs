@@ -114,7 +114,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public const string PowerOnHdmiCmd = "\x4F\x82\x41\x00";
 
-        public const string PowerOnInputXCmd = "\x4F\x82\xFF\x00";
+        //public const string PowerOnInputXCmd = "\x4F\x82\x{0:X02}\x00";
         
         public const string GetAddressCmd = "\x45\x83";
 
@@ -214,6 +214,17 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         {
             this.LogDebug($"Sending text {ComTextHelper.GetEscapedText(txt)}");
             Communication.SendText(txt);
+        }
+
+        public void SendHexAsText(string txt)
+        {
+            var bytes = Encoding.UTF8.GetBytes(txt);
+            var hex = BitConverter.ToString(bytes).Replace("-", "\\x");
+            if(!hex.StartsWith("\\x"))
+            {
+                hex = "\\x" + hex;
+            }
+            SendText(hex);
         }
 
         /// <summary>
@@ -358,8 +369,12 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public void PowerOnInputX(string inputNumber)
         {
-            Debug.Console(2, this, "CallingPOwerOnInputX");
-            SendText(PowerOnInputXCmd.Replace("FF", inputNumber));
+            Debug.Console(2, this, "CallingPowerOnInputX");
+
+            // \x4F\x82\x{0:X02}\x00
+            var cmd = "\x4F\x82\\x" + inputNumber + "\x00";
+
+            SendText(cmd);
         }
 
         public void GetAddress()
