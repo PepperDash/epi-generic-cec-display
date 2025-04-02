@@ -220,7 +220,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void SendHexAsText(string txt)
         {            
             var hexBytes = txt.Split(':').Select(b => Convert.ToByte(b, 16)).ToArray();            
-            SendText(Encoding.UTF8.GetString(hexBytes));
+            // SendText(Encoding.UTF8.GetString(hexBytes));
+            SendText(Encoding.GetEncoding(28591).GetString(hexBytes));
         }
 
         /// <summary>
