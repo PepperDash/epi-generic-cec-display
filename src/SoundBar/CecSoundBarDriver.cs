@@ -217,14 +217,24 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         }
 
         public void SendHexAsText(string txt)
-        {
-            var bytes = Encoding.UTF8.GetBytes(txt);
-            var hex = BitConverter.ToString(bytes).Replace("-", "\\x");
-            if(!hex.StartsWith("\\x"))
+        {            
+            // var bytes = Encoding.UTF8.GetBytes(txt);
+            // var hex = BitConverter.ToString(bytes).Replace(':', '\x');
+            // if (!hex.StartsWith('\x'))
+            // {
+            //     hex = '\x' + hex;
+            // }
+            // SendText(hex);
+
+            var hexBytes = txt.Split(':');
+            StringBuilder escapedHex = new StringBuilder();
+
+            foreach (var hexByte in hexBytes)
             {
-                hex = "\\x" + hex;
+                escapedHex.AppendFormat("\\x{0}", hexByte);
             }
-            SendText(hex);
+
+            SendText(escapedHex.ToString());
         }
 
         /// <summary>
@@ -367,13 +377,13 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             SendText(PowerOnHdmiCmd);
         }
 
-        public void PowerOnInputX(string inputNumber)
+        public void PowerOnInputX(string address, string inputNumber)
         {
             Debug.Console(2, this, "CallingPowerOnInputX");
 
             // \x4F\x82\x{0:X02}\x00
-            var cmd = "\x4F\x82\\x" + inputNumber + "\x00";
-
+            //var cmd = "\x4F\x82\\x" + inputNumber + "\x00";
+            var cmd = string.Format("{0}\x82{1}\x00", Convert.ToByte(address, 16), Convert.ToByte(inputNumber, 16));
             SendText(cmd);
         }
 
