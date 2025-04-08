@@ -16,6 +16,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public IntFeedback StatusFeedback { get; set; }
         public byte Id { get; private set; }
 
+        public string PhysicalAddress { get; private set; }
+       
+
 
         public const string PowerOffCmd = "\x1F\x36";
         public const string PowerOnCmd = "\x4F\x82\x10\x00";        
@@ -26,7 +29,15 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         // CEC-O-Matic > source: Playback 1 with Physical Address 3.1.0.0
         //  - End-user features > System Audio Control > System Audio Mode request
         // CEC-O-Matic > destinaiton: Audio System
-        public const string PowerOnHdmiCmd = "\x45\x70\x31\x00";
+        //public const string PowerOnHdmiCmd = "\x45\x70\x31\x00"; //stop this from being a constant
+
+        public string PowerOnHdmiCmd()
+        {
+            return $"\x45\x70{PhysicalAddress}\x00";
+        }
+
+        
+
         public const string GetAddressCmd = "\x45\x83";
 
         public const int InputPowerOn = 101;
@@ -92,6 +103,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             PowerIsOnFeedback = new BoolFeedback(() => _powerIsOn);
         }
 
+        
         public override void Initialize()
         {
             Communication.Connect();
@@ -108,7 +120,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
             CommunicationMonitor.StatusChange += (sender, args) =>
             {
-                Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
+                //Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
+                
                 StatusFeedback.FireUpdate();
             };
 
@@ -121,6 +134,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Custom activate
         /// </summary>
         /// <returns></returns>
+        
         public override bool CustomActivate()
         {
             Communication.Connect();
@@ -152,6 +166,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e">Event args</param>
+        
         private void Communication_BytesReceived(object sender, GenericCommMethodReceiveBytesArgs e)
         {
             try
@@ -218,6 +233,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Power on (Cmd: 0x11) pdf page 42 
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01][CS=0x00]
         /// </summary>
+        
         public void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
@@ -243,6 +259,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Power off (Cmd: 0x11) pdf page 42 
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x00][CS=0x00]
         /// </summary>
+        
         public void PowerOff()
         {
             _isPoweringOnIgnorePowerFb = false;
@@ -255,18 +272,21 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             PowerIsOnFeedback.FireUpdate();
         }
 
+        
         public void PowerOnDiscrete()
         {
             Debug.Console(2, this, "CallingPowerOnDiscrete");
-            SendText(PowerOnHdmiCmd);
+            SendText(PowerOnHdmiCmd());
         }
 
+        
         public void GetAddress()
         {
             Debug.Console(2, this, "CallingGetAddress");
             SendText(GetAddressCmd);
         }
 
+        
         private void UpdateBooleanFeedback()
         {
             try
