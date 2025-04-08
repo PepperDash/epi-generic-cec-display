@@ -16,24 +16,69 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public IntFeedback StatusFeedback { get; set; }
         public byte Id { get; private set; }
 
-        public string PhysicalAddress { get; private set; }
-       
+        private byte[] _physicalAddress = { 0x00, 0x00, 0x00, 0x00 };
+
+        public byte[] PhysicalAddress
+        {
+            get { return _physicalAddress; }
+            private set
+            {
+                if (value == null || value.Length != 4)
+                {
+                    throw new ArgumentException("Physical Address not as expected");
+                    this.LogDebug($"Physical Address not as expected {ComTextHelper.GetEscapedText(value)}");
+                }
+
+                
+                else if (value != _physicalAddress)
+                {
+                    _physicalAddress = value;
+                    this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(_physicalAddress)}");
+                }
+
+            }
+        }
 
 
-        public const string PowerOffCmd = "\x1F\x36";
+
+
+
+        /*public const string PowerOffCmd = "\x1F\x36";
         public const string PowerOnCmd = "\x4F\x82\x10\x00";        
         public const string PowerOnTv = "\x4F\x82\x10\x00";        
         public const string PowerOnArcCmd = "\x4F\x82\x11\x00";
-        public const string PowerOnOpticalCmd = "\x4F\x82\x12\x00";
+        public const string PowerOnOpticalCmd = "\x4F\x82\x12\x00";*/
+        public static readonly byte[] PowerOffCmd = { 0x1F, 0x36 };
+        public static readonly byte[] PowerOnCmd = { 0x4F, 0x82, 0x10, 0x00 };
+        public static readonly byte[] PowerOnTv = { 0x4F, 0x82, 0x10, 0x00 };
+        public static readonly byte[] PowerOnArcCmd = { 0x4F, 0x82, 0x11, 0x00 };
+        public static readonly byte[] PowerOnOpticalCmd = { 0x4F, 0x82, 0x12, 0x00 };
+        public static readonly byte[] GetPowerStatus = { 0x45, 0x8F }; //Power Query
+        public static readonly byte[] GetDestinationID = { 0x45, 0x83 }; //Get Destination ID
+
+
         // Tested with JBL Boost 2.1 
         // CEC-O-Matic > source: Playback 1 with Physical Address 3.1.0.0
         //  - End-user features > System Audio Control > System Audio Mode request
         // CEC-O-Matic > destinaiton: Audio System
         //public const string PowerOnHdmiCmd = "\x45\x70\x31\x00"; //stop this from being a constant
 
-        public string PowerOnHdmiCmd()
+        public byte[] PowerOnHdmiCmd()
         {
-            return $"\x45\x70{PhysicalAddress}\x00";
+            byte[] powerOnHdmiCmd = new byte[6];
+            powerOnHdmiCmd[0] = 0x45;
+            powerOnHdmiCmd[1] = 0x70;
+            if(PhysicalAddress == null)
+            {
+                PhysicalAddress = new byte[4];
+                PhysicalAddress[0] = 0x00;
+                PhysicalAddress[1] = 0x00;
+                PhysicalAddress[2] = 0x00;
+                PhysicalAddress[3] = 0x00;
+                this.LogDebug($"Physical Address is null, setting to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
+            }
+            Array.Copy(PhysicalAddress, 0, powerOnHdmiCmd, 2, 4);
+            return powerOnHdmiCmd;
         }
 
         
@@ -151,17 +196,24 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Send text to device
         /// </summary>
         /// <param name="txt"></param>
-        public void SendText(string txt)
+        /*public void SendText(string txt)
         {
             this.LogDebug($"Sending text {txt}");
             Communication.SendText(txt);
+        }*/
+
+        public void SendBytes(byte[] bytes)
+        {
+            this.LogDebug($"Sending bytes {ComTextHelper.GetEscapedText(bytes)}");
+            Communication.SendBytes(bytes);
         }
 
         public void SendCecOMaticCommand(string txt)
         {            
             var hexBytes = txt.Split(':').Select(b => Convert.ToByte(b, 16)).ToArray();            
             // SendText(Encoding.UTF8.GetString(hexBytes));
-            SendText(Encoding.GetEncoding(28591).GetString(hexBytes));
+            //SendText(Encoding.GetEncoding(28591).GetString(hexBytes));
+            SendBytes(hexBytes);
         }
 
         /// <summary>
@@ -202,7 +254,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 this.LogDebug("CEC Soundbar Address Feedback Received");
                 byte[] addressBytes = new byte[4];
                 Array.Copy(message, 2, addressBytes, 0, 4);
-                PhysicalAddress = Encoding.UTF8.GetString(addressBytes);
+                PhysicalAddress = addressBytes;
                 this.LogDebug($"Physical Address: {PhysicalAddress}");
             }
 
@@ -269,7 +321,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void StatusGet()
         {
             //Power Query
-            SendText("\x45\x8F");
+            //SendText("\x45\x8F");
+            SendBytes(GetPowerStatus);
         }
 
         /// <summary>
@@ -288,7 +341,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             }
             else
             {
-                SendText(PowerOnCmd);
+                SendBytes(PowerOnCmd);
             }
 
             if (PowerIsOnFeedback.BoolValue)
@@ -310,7 +363,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
 
-            SendText(PowerOffCmd);
+            //SendText(PowerOffCmd);
+            SendBytes(PowerOffCmd);
 
             PowerIsOnFeedback.FireUpdate();
         }
@@ -319,14 +373,16 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void PowerOnDiscrete()
         {
             Debug.Console(2, this, "CallingPowerOnDiscrete");
-            SendText(PowerOnHdmiCmd());
+            //SendText(PowerOnHdmiCmd());
+            SendBytes(PowerOnHdmiCmd());
         }
 
         
         public void AddressGet()
         {
             Debug.Console(2, this, "CallingGetAddress");
-            SendText("\x45\x83");
+            //SendText("\x45\x83");
+            SendBytes(GetDestinationID);
         }
 
         
