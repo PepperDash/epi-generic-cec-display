@@ -127,6 +127,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
             StatusGet();
 
+            AddressGet();
+
             base.Initialize();
         }
 
@@ -296,7 +298,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         }
 
         
-        public void GetAddress()
+        public void AddressGet()
         {
             Debug.Console(2, this, "CallingGetAddress");
             SendText(GetAddressCmd);
