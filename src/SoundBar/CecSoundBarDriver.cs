@@ -101,10 +101,12 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             _pollIntervalMs = _config.pollIntervalMs;
 
             PowerIsOnFeedback = new BoolFeedback(() => _powerIsOn);
+
+            Init();
         }
 
         
-        public override void Initialize()
+        /*public override void Initialize()
         {
             Communication.Connect();
             CommunicationMonitor.Start();
@@ -136,6 +138,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// Custom activate
         /// </summary>
         /// <returns></returns>
+        /// */
         
         public override bool CustomActivate()
         {
@@ -212,6 +215,31 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 CurrentInputNumber = inputByte;
             }
 
+        }
+
+        private void Init()
+        {
+
+            InitCommMonitor();
+            StatusGet();
+        }
+
+        private void InitCommMonitor()
+        {
+            var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 30000;
+
+            CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000,
+                StatusGet);
+
+            DeviceManager.AddDevice(CommunicationMonitor);
+
+            StatusFeedback = new IntFeedback(() => (int)CommunicationMonitor.Status);
+
+            CommunicationMonitor.StatusChange += (sender, args) =>
+            {
+                Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
+                StatusFeedback.FireUpdate();
+            };
         }
 
 
