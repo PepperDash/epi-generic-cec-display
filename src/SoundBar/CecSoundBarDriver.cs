@@ -47,7 +47,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 }
                 else
                 {
-                    this.LogDebug($"Physical Address not yet changed {ComTextHelper.GetEscapedText(value)}, tracker is at {addressChangeCounter}, it will update when greater than 2");
+                    this.LogDebug($"Physical Address not yet changed {ComTextHelper.GetEscapedText(value)}, tracker is at {addressChangeCounter}, it will update when greater than 2.");
                 }
                 this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(_physicalAddress)}");
             }
@@ -68,8 +68,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public static readonly byte[] PowerOnTv = { 0x4F, 0x82, 0x10, 0x00 };
         public static readonly byte[] PowerOnArcCmd = { 0x4F, 0x82, 0x11, 0x00 };
         public static readonly byte[] PowerOnOpticalCmd = { 0x4F, 0x82, 0x12, 0x00 };
-        public static readonly byte[] GetPowerStatus = { 0x45, 0x8F }; //Power Query
-        public static readonly byte[] GetDestinationID = { 0x45, 0x83 }; //Get Destination ID
+        public static readonly byte[] GetPowerStatus = { 0x45, 0x8F };
+        public static readonly byte[] GetDestinationID = { 0x45, 0x83 };
 
 
         // Tested with JBL Boost 2.1 
@@ -80,19 +80,24 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public byte[] PowerOnHdmiCmd()
         {
-            byte[] powerOnHdmiCmd = new byte[6];
-            powerOnHdmiCmd[0] = 0x45;
-            powerOnHdmiCmd[1] = 0x70;
-            if(PhysicalAddress == null)
+            byte[] powerOnHdmiCmd = new byte[6]
             {
-                PhysicalAddress = new byte[4];
-                PhysicalAddress[0] = 0x00;
-                PhysicalAddress[1] = 0x00;
-                PhysicalAddress[2] = 0x00;
-                PhysicalAddress[3] = 0x00;
-                this.LogDebug($"Physical Address is null, setting to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
+                0x45, // Header
+                0x70, // Command
+                0x00, // Physical Address 1
+                0x00, // Physical Address 2
+                0x00, // Physical Address 3
+                0x00  // Physical Address 4
+            };
+            
+            if(PhysicalAddress!= null && !PhysicalAddress.SequenceEqual(new byte[4] { 0x00, 0x00, 0x00, 0x00 })) //if a physical address isn't null and doesn't have the default value
+            {
+                Array.Copy(PhysicalAddress, 0, powerOnHdmiCmd, 2, 4);
             }
-            Array.Copy(PhysicalAddress, 0, powerOnHdmiCmd, 2, 4);
+            else
+            {
+                this.LogDebug($"PowerOnHdmiCmd: Physical Address not set");
+            }
             return powerOnHdmiCmd;
         }
 
