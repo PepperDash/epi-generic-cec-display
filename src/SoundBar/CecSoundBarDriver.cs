@@ -38,8 +38,6 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         
 
-        public const string GetAddressCmd = "\x45\x83";
-
         public const int InputPowerOn = 101;
         public const int InputPowerOff = 102;
         public static List<string> InputKeys = new List<string>();
@@ -328,7 +326,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void AddressGet()
         {
             Debug.Console(2, this, "CallingGetAddress");
-            SendText(GetAddressCmd);
+            SendText("\x45\x83");
         }
 
         
