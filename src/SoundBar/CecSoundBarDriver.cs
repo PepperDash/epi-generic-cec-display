@@ -194,6 +194,22 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 UpdatePowerFb(powerByte);
             }
 
+            else if(message[1] == 0x84)
+            {
+                this.LogDebug("CEC Soundbar Address Feedback Received");
+                byte[] addressBytes = new byte[4];
+                Array.Copy(message, 2, addressBytes, 0, 4);
+                PhysicalAddress = Encoding.UTF8.GetString(addressBytes);
+                this.LogDebug($"Physical Address: {PhysicalAddress}");
+            }
+
+            else if (message[1] == 0x90)
+            {
+                this.LogDebug("CEC Soundbar Input Feedback Received");
+                byte inputByte = message[2];
+                CurrentInputNumber = inputByte;
+            }
+
         }
 
 
