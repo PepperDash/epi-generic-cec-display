@@ -155,7 +155,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// <param name="txt"></param>
         public void SendText(string txt)
         {
-            this.LogDebug($"Sending text {ComTextHelper.GetEscapedText(txt)}");
+            this.LogDebug($"Sending text {txt}");
             Communication.SendText(txt);
         }
 
@@ -222,6 +222,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
             InitCommMonitor();
             StatusGet();
+            AddressGet();
         }
 
         private void InitCommMonitor()
