@@ -14,6 +14,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public StatusMonitorBase CommunicationMonitor { get; private set; }
         public IBasicCommunication Communication { get; private set; }
         public IntFeedback StatusFeedback { get; set; }
+
+        private int addressChangeCounter = 0;
         public byte Id { get; private set; }
 
         private byte[] _physicalAddress = { 0x00, 0x00, 0x00, 0x00 };
@@ -23,21 +25,34 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             get { return _physicalAddress; }
             private set
             {
-                if (value == null || value.Length != 4)
-                {
-                    throw new ArgumentException("Physical Address not as expected");
-                    this.LogDebug($"Physical Address not as expected {ComTextHelper.GetEscapedText(value)}");
-                }
-
-                
-                else if (value != _physicalAddress)
-                {
-                    _physicalAddress = value;
-                    this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(_physicalAddress)}");
-                }
-
+                SetPhysicalAddress(value);
             }
         }
+
+        private void SetPhysicalAddress(byte[] value)
+        {
+            if (value == null || value.Length != 4)
+            {
+                this.LogDebug($"Physical Address not as expected {ComTextHelper.GetEscapedText(value)}");
+                addressChangeCounter = 0;
+            }
+            else if (!value.SequenceEqual(_physicalAddress))
+            {
+                addressChangeCounter += 1;
+                if (addressChangeCounter > 2)
+                {
+                    _physicalAddress = value;
+                    this.LogDebug($"Physical Address changed {ComTextHelper.GetEscapedText(value)}");
+                    addressChangeCounter = 0;
+                }
+                else
+                {
+                    this.LogDebug($"Physical Address not yet changed {ComTextHelper.GetEscapedText(value)}, tracker is at {addressChangeCounter}, it will update when greater than 2");
+                }
+                this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(_physicalAddress)}");
+            }
+        }
+
 
 
 
