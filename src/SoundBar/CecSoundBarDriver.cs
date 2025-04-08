@@ -219,10 +219,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private void Init()
         {
-
+            Debug.Console(2, this, "Initializing CEC Soundbar");
             InitCommMonitor();
-            StatusGet();
-            AddressGet();
         }
 
         private void InitCommMonitor()
@@ -230,7 +228,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             var pollInterval = _pollIntervalMs > 0 ? _pollIntervalMs : 30000;
 
             CommunicationMonitor = new GenericCommunicationMonitor(this, Communication, pollInterval, 180000, 300000,
-                StatusGet);
+                AddressGet);
 
             DeviceManager.AddDevice(CommunicationMonitor);
 
