@@ -178,7 +178,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             if (PhysicalAddressBytes != null && PhysicalAddressBytes.Count == 4)
             {
                 physicalAddressSetinConfig = true;
-                this.LogDebug($"Physical Address set in config");
+                this.LogDebug($"Physical Address set in config {physicalAddressSetinConfig}");
                 PhysicalAddress = PhysicalAddressBytes.Select(b => Convert.ToByte(b)).ToArray();
             }
             else
