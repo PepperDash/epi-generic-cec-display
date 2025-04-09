@@ -18,6 +18,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         private int addressChangeCounter = 0;
         public byte Id { get; private set; }
 
+        private List<int> PhysicalAddressBytes;
+
         private byte[] _physicalAddress = { 0x00, 0x00, 0x00, 0x00 };
 
         public byte[] PhysicalAddress
@@ -162,6 +164,18 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             _powerOnUsesDiscreteCommand = _config.PowerOnUsesDiscreteCommand;
 
             _pollIntervalMs = _config.pollIntervalMs;
+
+            PhysicalAddressBytes = _config.DestinationHex;
+            if (PhysicalAddressBytes != null && PhysicalAddressBytes.Count == 4)
+            {
+                PhysicalAddress = PhysicalAddressBytes.Select(b => Convert.ToByte(b)).ToArray();
+                this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
+            }
+            else
+            {
+                this.LogDebug($"Physical Address not set");
+            }
+
 
             PowerIsOnFeedback = new BoolFeedback(() => _powerIsOn);
 
@@ -358,6 +372,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             if (_powerOnUsesDiscreteCommand)
             {
                 PowerOnDiscrete();
+                this.LogInformation($"PhysicalAddress == {PhysicalAddress}");
             }
             else
             {
