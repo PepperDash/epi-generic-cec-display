@@ -22,6 +22,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private byte[] _physicalAddress = { 0x00, 0x00, 0x00, 0x00 };
 
+        private bool physicalAddressSetinConfig = false;
+
         public byte[] PhysicalAddress
         {
             get { return _physicalAddress; }
@@ -33,6 +35,14 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private void SetPhysicalAddress(byte[] value)
         {
+            if(physicalAddressSetinConfig)
+            {
+                this.LogDebug("Setting Physical Address from config");
+                _physicalAddress = value;
+                this.LogDebug($"Physical Address set in config {ComTextHelper.GetEscapedText(value)}");
+                return;
+            }
+            // If the value is not set in config, we get it from the device
             if (value == null || value.Length != 4)
             {
                 this.LogDebug($"Physical Address not as expected {ComTextHelper.GetEscapedText(value)}");
@@ -51,7 +61,6 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 {
                     this.LogDebug($"Physical Address not yet changed {ComTextHelper.GetEscapedText(value)}, tracker is at {addressChangeCounter}, it will update when greater than 2.");
                 }
-                this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(_physicalAddress)}");
             }
         }
 
@@ -165,15 +174,21 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
             _pollIntervalMs = _config.pollIntervalMs;
 
-            PhysicalAddressBytes = _config.DestinationHex;
+            PhysicalAddressBytes = _config.physicalAddress;
             if (PhysicalAddressBytes != null && PhysicalAddressBytes.Count == 4)
             {
+                physicalAddressSetinConfig = true;
+                this.LogDebug($"Physical Address set in config");
                 PhysicalAddress = PhysicalAddressBytes.Select(b => Convert.ToByte(b)).ToArray();
-                this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
             }
             else
             {
+
                 this.LogDebug($"Physical Address not set");
+                foreach(var item in PhysicalAddressBytes)
+                {
+                    this.LogDebug($"Physical Address item {item}");
+                }
             }
 
 
@@ -283,13 +298,16 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 UpdatePowerFb(powerByte);
             }
 
-            else if(message[1] == 0x84)
+            else if (message[1] == 0x84)
             {
                 this.LogDebug("CEC Soundbar Address Feedback Received");
+                if (!physicalAddressSetinConfig)
+                {             
                 byte[] addressBytes = new byte[4];
                 Array.Copy(message, 2, addressBytes, 0, 4);
                 PhysicalAddress = addressBytes;
-                this.LogDebug($"Physical Address: {PhysicalAddress}");
+                this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
+                }
             }
 
             else if (message[1] == 0x90)
@@ -372,7 +390,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             if (_powerOnUsesDiscreteCommand)
             {
                 PowerOnDiscrete();
-                this.LogInformation($"PhysicalAddress == {PhysicalAddress}");
+                this.LogInformation($"PhysicalAddress == {Encoding.GetEncoding(28591).GetString(PhysicalAddress)}");
             }
             else
             {

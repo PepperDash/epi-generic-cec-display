@@ -14,7 +14,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         [JsonProperty("powerOnUsesDiscreteCommand")]
         public bool PowerOnUsesDiscreteCommand { get; set; }
 
-        [JsonProperty("destinationHex")]
-        public List<int> DestinationHex { get; set; }
+        [JsonProperty("physicalAddress")]
+        public List<int> physicalAddress { get; set; }
     }
 }
