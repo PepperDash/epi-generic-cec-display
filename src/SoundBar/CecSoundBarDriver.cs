@@ -20,7 +20,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private List<int> PhysicalAddressBytes;
 
-        private byte[] _physicalAddress = { 0x00, 0x00, 0x00, 0x00 };
+        private byte[] _physicalAddress = { 0x00, 0x00 };
 
         private bool physicalAddressSetinConfig = false;
 
@@ -43,14 +43,14 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 return;
             }
             // If the value is not set in config, we get it from the device
-            if (value == null || value.Length != 4)
+            if (value == null || value.Length != 2)
             {
                 this.LogDebug($"Physical Address not as expected {ComTextHelper.GetEscapedText(value)}");
                 addressChangeCounter = 0;
             }
             else if (!value.SequenceEqual(_physicalAddress))
             {
-                addressChangeCounter += 1;
+                addressChangeCounter++;
                 if (addressChangeCounter > 2)
                 {
                     _physicalAddress = value;
@@ -63,11 +63,6 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 }
             }
         }
-
-
-
-
-
 
         /*public const string PowerOffCmd = "\x1F\x36";
         public const string PowerOnCmd = "\x4F\x82\x10\x00";        
@@ -91,19 +86,17 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public byte[] PowerOnHdmiCmd()
         {
-            byte[] powerOnHdmiCmd = new byte[6]
+            byte[] powerOnHdmiCmd = new byte[4]
             {
                 0x45, // Header
                 0x70, // Command
                 0x00, // Physical Address 1
-                0x00, // Physical Address 2
-                0x00, // Physical Address 3
-                0x00  // Physical Address 4
+                0x00, // Physical Address 2               
             };
             
-            if(PhysicalAddress!= null && !PhysicalAddress.SequenceEqual(new byte[4] { 0x00, 0x00, 0x00, 0x00 })) //if a physical address isn't null and doesn't have the default value
+            if(PhysicalAddress!= null && !PhysicalAddress.SequenceEqual(new byte[2] { 0x00, 0x00 })) //if a physical address isn't null and doesn't have the default value
             {
-                Array.Copy(PhysicalAddress, 0, powerOnHdmiCmd, 2, 4);
+                Array.Copy(PhysicalAddress, 0, powerOnHdmiCmd, 2, 2);
             }
             else
             {
@@ -175,7 +168,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             _pollIntervalMs = _config.pollIntervalMs;
 
             PhysicalAddressBytes = _config.physicalAddress;
-            if (PhysicalAddressBytes != null && PhysicalAddressBytes.Count == 4)
+            if (PhysicalAddressBytes != null && PhysicalAddressBytes.Count == 2)
             {
                 physicalAddressSetinConfig = true;
                 this.LogDebug($"Physical Address set in config {physicalAddressSetinConfig}");
@@ -303,8 +296,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 this.LogDebug("CEC Soundbar Address Feedback Received");
                 if (!physicalAddressSetinConfig)
                 {             
-                byte[] addressBytes = new byte[4];
-                Array.Copy(message, 2, addressBytes, 0, 4);
+                byte[] addressBytes = new byte[2];
+                Array.Copy(message, 2, addressBytes, 0, 2);
                 PhysicalAddress = addressBytes;
                 this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
                 }
