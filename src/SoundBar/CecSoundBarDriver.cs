@@ -168,29 +168,34 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
             _pollIntervalMs = _config.pollIntervalMs;
 
-            PhysicalAddressBytes = _config.physicalAddress;
-            if (PhysicalAddressBytes != null && PhysicalAddressBytes.Count == 2)
+            if (config.physicalAddress == null)
             {
-                physicalAddressSetinConfig = true;
-                this.LogDebug($"Physical Address set in config {physicalAddressSetinConfig}");
-                try
-                {
-                    PhysicalAddress = PhysicalAddressBytes.Select(b => Convert.ToByte(b, 16)).ToArray();
-                }
-                catch (Exception ex)
-                {
-                    this.LogDebug($"Error converting physical address {ex.Message}");
-                }
+                this.LogDebug($"Physical Address not set in config");
             }
             else
             {
-
-                this.LogDebug($"Physical Address not set");
-                foreach (var item in PhysicalAddressBytes)
+                PhysicalAddressBytes = _config.physicalAddress;
+                if (PhysicalAddressBytes != null && PhysicalAddressBytes.Count == 2)
                 {
-                    this.LogDebug($"Physical Address item {item}");
+                    physicalAddressSetinConfig = true;
+                    this.LogDebug($"Physical Address set in config {physicalAddressSetinConfig}");
+                    try
+                    {
+                        PhysicalAddress = PhysicalAddressBytes.Select(b => Convert.ToByte(b, 16)).ToArray();
+                    }
+                    catch (Exception ex)
+                    {
+                        this.LogDebug($"Error converting physical address {ex.Message}");
+                    }
+                }
+                else
+                {
+                    this.LogDebug($"Physical Address not set");
                 }
             }
+
+            
+            
 
 
             PowerIsOnFeedback = new BoolFeedback(() => _powerIsOn);
