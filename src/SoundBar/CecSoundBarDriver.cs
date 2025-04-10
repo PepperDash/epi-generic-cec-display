@@ -18,7 +18,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         private int addressChangeCounter = 0;
         public byte Id { get; private set; }
 
-        private byte[] _physicalAddress = { 0x00, 0x00, 0x00, 0x00 };
+        private byte[] _physicalAddress = { 0x00, 0x00 };
 
         public byte[] PhysicalAddress
         {
@@ -31,14 +31,14 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private void SetPhysicalAddress(byte[] value)
         {
-            if (value == null || value.Length != 4)
+            if (value == null || value.Length != 2)
             {
                 this.LogDebug($"Physical Address not as expected {ComTextHelper.GetEscapedText(value)}");
                 addressChangeCounter = 0;
             }
             else if (!value.SequenceEqual(_physicalAddress))
             {
-                addressChangeCounter += 1;
+                addressChangeCounter++;
                 if (addressChangeCounter > 2)
                 {
                     _physicalAddress = value;
@@ -80,19 +80,17 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         public byte[] PowerOnHdmiCmd()
         {
-            byte[] powerOnHdmiCmd = new byte[6]
+            byte[] powerOnHdmiCmd = new byte[4]
             {
                 0x45, // Header
                 0x70, // Command
                 0x00, // Physical Address 1
                 0x00, // Physical Address 2
-                0x00, // Physical Address 3
-                0x00  // Physical Address 4
             };
             
-            if(PhysicalAddress!= null && !PhysicalAddress.SequenceEqual(new byte[4] { 0x00, 0x00, 0x00, 0x00 })) //if a physical address isn't null and doesn't have the default value
+            if(PhysicalAddress!= null && !PhysicalAddress.SequenceEqual(new byte[2] { 0x00, 0x00})) //if a physical address isn't null and doesn't have the default value
             {
-                Array.Copy(PhysicalAddress, 0, powerOnHdmiCmd, 2, 4);
+                Array.Copy(PhysicalAddress, 0, powerOnHdmiCmd, 2, 2);
             }
             else
             {
@@ -272,8 +270,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             else if(message[1] == 0x84)
             {
                 this.LogDebug("CEC Soundbar Address Feedback Received");
-                byte[] addressBytes = new byte[4];
-                Array.Copy(message, 2, addressBytes, 0, 4);
+                byte[] addressBytes = new byte[2];
+                Array.Copy(message, 2, addressBytes, 0, 2);
                 PhysicalAddress = addressBytes;
                 this.LogDebug($"Physical Address: {PhysicalAddress}");
             }
