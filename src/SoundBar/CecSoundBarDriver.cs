@@ -19,7 +19,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         private int addressChangeCounter = 0;
         public byte Id { get; private set; }
 
-        private List<int> PhysicalAddressBytes;
+        private List<string> PhysicalAddressBytes;
 
         private byte[] _physicalAddress = { 0x00, 0x00 };
 
@@ -173,13 +173,20 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             {
                 physicalAddressSetinConfig = true;
                 this.LogDebug($"Physical Address set in config {physicalAddressSetinConfig}");
-                PhysicalAddress = PhysicalAddressBytes.Select(b => Convert.ToByte(b)).ToArray();
+                try
+                {
+                    PhysicalAddress = PhysicalAddressBytes.Select(b => Convert.ToByte(b, 16)).ToArray();
+                }
+                catch (Exception ex)
+                {
+                    this.LogDebug($"Error converting physical address {ex.Message}");
+                }
             }
             else
             {
 
                 this.LogDebug($"Physical Address not set");
-                foreach(var item in PhysicalAddressBytes)
+                foreach (var item in PhysicalAddressBytes)
                 {
                     this.LogDebug($"Physical Address item {item}");
                 }

@@ -15,6 +15,6 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public bool PowerOnUsesDiscreteCommand { get; set; }
 
         [JsonProperty("physicalAddress")]
-        public List<int> physicalAddress { get; set; }
+        public List<string> physicalAddress { get; set; }
     }
 }
