@@ -52,7 +52,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             else if (!value.SequenceEqual(_physicalAddress))
             {
                 addressChangeCounter++;
-                if (addressChangeCounter > 2)
+                if (addressChangeCounter > 0)
                 {
                     _physicalAddress = value;
                     this.LogDebug($"Physical Address changed {ComTextHelper.GetEscapedText(value)}");
@@ -60,7 +60,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 }
                 else
                 {
-                    this.LogDebug($"Physical Address not yet changed {ComTextHelper.GetEscapedText(value)}, tracker is at {addressChangeCounter}, it will update when greater than 2.");
+                    this.LogDebug($"Physical Address not yet changed {ComTextHelper.GetEscapedText(value)}, tracker is at {addressChangeCounter}, it will update when greater than 0.");
                 }
             }
         }
@@ -311,6 +311,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
                 {             
                 byte[] addressBytes = new byte[2];
                 Array.Copy(message, 2, addressBytes, 0, 2);
+                    addressBytes[0]++; //quick fix to conform to setting the command for 0x41, which has been the correct command to accomplish this goal in all soundbars so far. A more robust method can be used if needed.
                 PhysicalAddress = addressBytes;
                 this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
                 }
