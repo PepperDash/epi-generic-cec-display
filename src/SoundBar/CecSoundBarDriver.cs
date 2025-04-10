@@ -6,6 +6,7 @@ using Crestron.SimplSharp;
 using PepperDash.Core;
 using PepperDash.Core.Logging;
 using PepperDash.Essentials.Core;
+using Org.BouncyCastle.Utilities;
 
 namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 {
@@ -383,7 +384,6 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             if (_powerOnUsesDiscreteCommand)
             {
                 PowerOnDiscrete();
-                this.LogInformation($"PhysicalAddress == {Encoding.GetEncoding(28591).GetString(PhysicalAddress)}");
             }
             else
             {
