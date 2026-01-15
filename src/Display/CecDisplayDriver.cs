@@ -602,39 +602,51 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
         private void ParseMessage(byte[] message)
         {
-            var command = message[5];
+            // Validate message is not null and has minimum length
+            if (message == null || message.Length == 0)
+            {
+                Debug.Console(1, this, "Message is null or empty");
+                return;
+            }
 
             if (Debug.Level == 2)
             {
-                // This check is here to prevent following string format from building unnecessarily on level 0 or 1
-                Debug.Console(2, this, "Add to buffer:{0}", ComTextHelper.GetEscapedText(_incomingBuffer));
+                Debug.Console(2, this, "ParseMessage received {0} bytes: {1}", message.Length, ComTextHelper.GetEscapedText(message));
             }
 
-            switch (command)
-            {
-              
-                case 0x00:
-                {
-                    
-                    break;
-                }
-
-                 
-                 
-
-
-
-                default:
-                {
-                    Debug.Console(1, this, "Unknown message: {0}", ComTextHelper.GetEscapedText(message));
-                    break;
-                }
-            }
-
-            if (message[2] == 0x01 || message[2] == 0x00)
+            // Handle power feedback if message has at least 3 bytes
+            if (message.Length >= 3 && (message[2] == 0x01 || message[2] == 0x00))
             {
                 byte powerByte = message[2];
                 UpdatePowerFb(powerByte);
+            }
+
+            // Handle command byte if message has at least 6 bytes
+            if (message.Length >= 6)
+            {
+                var command = message[5];
+
+                switch (command)
+                {
+                    case 0x00:
+                        {
+                            // Handle command 0x00
+                            break;
+                        }
+                    default:
+                        {
+                            if (Debug.Level >= 1)
+                            {
+                                Debug.Console(1, this, "Unknown command 0x{0:X2} in message: {1}", command, ComTextHelper.GetEscapedText(message));
+                            }
+                            break;
+                        }
+                }
+            }
+            else if (message.Length < 3)
+            {
+                // Log short messages for debugging
+                Debug.Console(1, this, "Short message received ({0} bytes): {1}", message.Length, ComTextHelper.GetEscapedText(message));
             }
         }
 
