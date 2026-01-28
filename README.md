@@ -116,3 +116,93 @@ This is a plugin repo for Display CEC control
 |       | 18  | Input 8 Name [FUTURE]        |
 |       | 19  | Input 9 Name [FUTURE]        |
 |       | 20  | Input 10 Name [FUTURE]       |
+<!-- START Minimum Essentials Framework Versions -->
+### Minimum Essentials Framework Versions
+
+- 1.6.7
+- 2.0.0
+<!-- END Minimum Essentials Framework Versions -->
+<!-- START Config Example -->
+### Config Example
+
+```json
+{
+    "key": "GeneratedKey",
+    "uid": 1,
+    "name": "GeneratedName",
+    "type": "CecDisplayDriverProperties",
+    "group": "Group",
+    "properties": {
+        "id": "SampleString",
+        "volumeUpperLimit": 0,
+        "volumeLowerLimit": 0,
+        "pollIntervalMs": 0,
+        "coolingTimeMs": "SampleValue",
+        "warmingTimeMs": "SampleValue"
+    }
+}
+```
+<!-- END Config Example -->
+<!-- START Supported Types -->
+
+<!-- END Supported Types -->
+<!-- START Join Maps -->
+
+<!-- END Join Maps -->
+<!-- START Interfaces Implemented -->
+### Interfaces Implemented
+
+- IBasicVolumeControls
+- ICommunicationMonitor
+- IBridgeAdvanced
+- IHasPowerControlWithFeedback
+<!-- END Interfaces Implemented -->
+<!-- START Base Classes -->
+### Base Classes
+
+- DisplayControllerJoinMap
+- TwoWayDisplayBase
+- EssentialsDevice
+<!-- END Base Classes -->
+<!-- START Public Methods -->
+### Public Methods
+
+- public void MuteOff()
+- public void MuteOn()
+- public void MuteToggle()
+- public void VolumeDown(bool pressRelease)
+- public void VolumeUp(bool pressRelease)
+- public void LinkToApi(BasicTriList trilist, uint joinStart, string joinMapKey, EiscApiAdvanced bridge)
+- public void StatusGet()
+- public void InputHdmi1()
+- public void InputHdmi2()
+- public void InputHdmi3()
+- public void InputHdmi4()
+- public void SendText(string txt)
+- public void SendBytes(byte[] bytes)
+- public void SendCecOMaticCommand(string txt)
+- public void PowerToggle()
+- public void StatusGet()
+- public void PowerOn()
+- public void PowerOff()
+- public void PowerOnDiscrete()
+- public void AddressGet()
+<!-- END Public Methods -->
+<!-- START Bool Feedbacks -->
+### Bool Feedbacks
+
+- MuteFeedback
+- PowerIsOnFeedback
+<!-- END Bool Feedbacks -->
+<!-- START Int Feedbacks -->
+### Int Feedbacks
+
+- InputNumberFeedback
+- StatusFeedback
+- VolumeLevelFeedback
+- StatusFeedback
+- InputNumberFeedback
+<!-- END Int Feedbacks -->
+<!-- START String Feedbacks -->
+
+<!-- END String Feedbacks -->
