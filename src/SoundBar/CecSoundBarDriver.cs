@@ -293,37 +293,47 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private void ParseMessage(byte[] message)
         {
-
-            this.LogDebug($"ParseMessage: {ComTextHelper.GetEscapedText(message)}");
-
-            if (message[0] == 0x5f && message[1] == 0x72) //this signifies a power response
+            // Validate message is not null and has minimum length
+            if (message == null || message.Length == 0)
             {
+                this.LogDebug("ParseMessage: Message is null or empty");
+                return;
+            }
 
+            this.LogDebug($"ParseMessage: {message.Length} bytes - {ComTextHelper.GetEscapedText(message)}");
+
+            // Check for power response (requires at least 3 bytes: 0x5f, 0x72, powerByte)
+            if (message.Length >= 3 && message[0] == 0x5f && message[1] == 0x72)
+            {
                 this.LogDebug("CEC Soundbar Power Feedback Received");
                 byte powerByte = message[2];
                 UpdatePowerFb(powerByte);
             }
-
-            else if (message[1] == 0x84)
+            // Check for address feedback (requires at least 4 bytes: header, 0x84, 2 address bytes)
+            else if (message.Length >= 4 && message[1] == 0x84)
             {
                 this.LogDebug("CEC Soundbar Address Feedback Received");
                 if (!physicalAddressSetinConfig)
-                {             
-                byte[] addressBytes = new byte[2];
-                Array.Copy(message, 2, addressBytes, 0, 2);
+                {
+                    byte[] addressBytes = new byte[2];
+                    Array.Copy(message, 2, addressBytes, 0, 2);
                     addressBytes[0]++; //quick fix to conform to setting the command for 0x41, which has been the correct command to accomplish this goal in all soundbars so far. A more robust method can be used if needed.
-                PhysicalAddress = addressBytes;
-                this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
+                    PhysicalAddress = addressBytes;
+                    this.LogDebug($"Physical Address set to {ComTextHelper.GetEscapedText(PhysicalAddress)}");
                 }
             }
-
-            else if (message[1] == 0x90)
+            // Check for input feedback (requires at least 3 bytes: header, 0x90, inputByte)
+            else if (message.Length >= 3 && message[1] == 0x90)
             {
                 this.LogDebug("CEC Soundbar Input Feedback Received");
                 byte inputByte = message[2];
                 CurrentInputNumber = inputByte;
             }
-
+            else
+            {
+                // Log unrecognized messages for debugging
+                this.LogDebug($"Unrecognized message format or insufficient length ({message.Length} bytes)");
+            }
         }
 
         private void Init()
