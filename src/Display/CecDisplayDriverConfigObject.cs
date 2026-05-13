@@ -21,5 +21,11 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
         [JsonProperty("warmingTimeMs")]
         public uint warmingTimeMs { get; set; }
+
+        [JsonProperty("powerCommandSet")]
+        public string PowerCommandSet { get; set; }
+
+        [JsonProperty("invertPowerFeedback")]
+        public bool InvertPowerFeedback { get; set; }
 	}
 }

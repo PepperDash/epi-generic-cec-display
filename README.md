@@ -18,6 +18,8 @@ This is a plugin repo for Display CEC control
 	"group": "plugin",
 	"properties": {
 		"id": "00",
+		"powerCommandSet": "default",
+		"invertPowerFeedback": false,
 		"control": {
 			"method": "Cec",
 			"controlPortDevKey": "dm1-rx1",
@@ -27,6 +29,15 @@ This is a plugin repo for Display CEC control
 	}
 }
 ```
+
+Power command set options:
+
+- `default` (existing behavior): On=`\x40\x44\x6D`, Off=`\x40\x36`, HDMI1=`\x4F\x82\x10\x00`, HDMI2=`\x4F\x82\x20\x00`
+- `samsungUserControl`: On=`\x40\x44\x6D`, Off=`\x40\x44\x6C`, HDMI1=`\x4F\x82\x10\x00`, HDMI2=`\x4F\x82\x20\x00`
+
+Power feedback option:
+
+- `invertPowerFeedback`: `true` inverts only bridge feedback mapping for Power On/Off joins. Command send behavior is unchanged.
 
 ### Display Plugin Bridge Object
 

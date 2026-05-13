@@ -8,6 +8,7 @@ using PepperDash.Essentials.Devices.Common.Displays;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Feedback = PepperDash.Essentials.Core.Feedback;
 
 namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
@@ -15,11 +16,19 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
     public class CecDisplayDriverDisplayController : TwoWayDisplayBase, IBasicVolumeControls, ICommunicationMonitor,
         IBridgeAdvanced
     {
+        private enum PowerCommandSet
+        {
+            Default,
+            SamsungUserControl
+        }
+
         public const int InputPowerOn = 101;
         public const int InputPowerOff = 102;
         public static List<string> InputKeys = new List<string>();
         private readonly CecDisplayDriverPropertiesConfig _config;
         private readonly uint _coolingTimeMs;
+        private readonly PowerCommandSet _powerCommandSet;
+        private readonly bool _invertPowerFeedback;
 
         private readonly int _lowerLimit;
         private readonly long _pollIntervalMs;
@@ -57,6 +66,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         private bool _isWarmingUp;
         private bool _lastCommandSentWasVolume;
         private int _lastVolumeSent;
+        private CTimer _samsungPowerRetryTimer;
         private CCriticalSection _parseLock = new CCriticalSection();
         private bool _powerIsOn;
 
@@ -85,6 +95,12 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             _pollIntervalMs = _config.pollIntervalMs;
             _coolingTimeMs = _config.coolingTimeMs;
             _warmingTimeMs = _config.warmingTimeMs;
+            _powerCommandSet = ParsePowerCommandSet(_config.PowerCommandSet);
+            _invertPowerFeedback = _config.InvertPowerFeedback;
+
+            Debug.Console(1, this, "Using CEC command set: {0}", _powerCommandSet);
+            Debug.Console(1, this, "Invert power feedback: {0}", _invertPowerFeedback);
+            Debug.Console(1, this, "CEC driver build marker: 2026-05-13b");
 
             Init();
         }
@@ -98,7 +114,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 			get { return CurrentInputNumber; }
             set 
 			{
-				if (value > 0 && value < InputPorts.Count)
+                if (value > 0 && value <= InputPorts.Count)
 				{
 					ExecuteSwitch(InputPorts.ElementAt(value - 1).Selector);
 					CurrentInputNumber = value;
@@ -158,6 +174,16 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 		public const string PowerControlToggle = "\x40\x44\x6D";
 
         /// <summary>
+        /// CEC Image View On
+        /// </summary>
+        public const string PowerControlImageViewOn = "\x40\x04";
+
+        /// <summary>
+        /// CEC Text View On
+        /// </summary>
+        public const string PowerControlTextViewOn = "\x40\x0D";
+
+        /// <summary>
         /// Power control on 
         /// </summary>
         public const string PowerControlOn = "\x40\x44\x6D";
@@ -166,6 +192,16 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// Power control off
         /// </summary>
 		public const string PowerControlOff = "\x40\x36";
+
+        /// <summary>
+        /// Power off using user control opcode
+        /// </summary>
+        public const string PowerControlOffUserControl = "\x40\x44\x6C";
+
+        /// <summary>
+        /// User Control Released
+        /// </summary>
+        public const string PowerControlUserControlRelease = "\x40\x45";
 
         /// <summary>
         /// Volume mute control data1 - on 
@@ -198,9 +234,19 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         public const string InputControlHdmi1 = "\x4F\x82\x10\x00";
 
         /// <summary>
+        /// Input source control data1 - HDMI1 (Samsung user control set)
+        /// </summary>
+        public const string InputControlHdmi1SamsungUserControl = "\x4F\x82\x10\x00";
+
+        /// <summary>
         /// Input source control data1 - HDMI2
         /// </summary>
 		public const string InputControlHdmi2 = "\x4F\x82\x20\x00";
+
+        /// <summary>
+        /// Input source control data1 - HDMI2 (Samsung user control set)
+        /// </summary>
+		public const string InputControlHdmi2SamsungUserControl = "\x4F\x82\x20\x00";
 
         /// <summary>
         /// Input source control data1 - HDMI3
@@ -387,13 +433,30 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
 
             // Power Off
-            trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, () => PowerOff());
-
-            PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
+            trilist.SetSigTrueAction(joinMap.PowerOff.JoinNumber, () =>
+            {
+                Debug.Console(1, this, "Bridge PowerOff join hit: {0}", joinMap.PowerOff.JoinNumber);
+                PowerOff();
+            });
 
             // PowerOn
-            trilist.SetSigTrueAction(joinMap.PowerOn.JoinNumber, PowerOn);
-            PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
+            trilist.SetSigTrueAction(joinMap.PowerOn.JoinNumber, () =>
+            {
+                Debug.Console(1, this, "Bridge PowerOn join hit: {0}", joinMap.PowerOn.JoinNumber);
+                PowerOn();
+            });
+
+            // Apply optional inversion to bridge feedback only. This does not alter command logic.
+            if (_invertPowerFeedback)
+            {
+                PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
+                PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
+            }
+            else
+            {
+                PowerIsOnFeedback.LinkComplementInputSig(trilist.BooleanInput[joinMap.PowerOff.JoinNumber]);
+                PowerIsOnFeedback.LinkInputSig(trilist.BooleanInput[joinMap.PowerOn.JoinNumber]);
+            }
 
             // Input digitals
             var count = 0;
@@ -402,13 +465,34 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             {
                 var i = count;
                 trilist.SetSigTrueAction((ushort) (joinMap.InputSelectOffset.JoinNumber + count),
-					() => SetInput = i + 1);
+                    () =>
+                    {
+                        Debug.Console(1, this, "Bridge Input join hit: {0} -> Input {1}", joinMap.InputSelectOffset.JoinNumber + (uint)i, i + 1);
+                        SetInput = i + 1;
+                    });
 
                 trilist.StringInput[(ushort) (joinMap.InputNamesOffset.JoinNumber + count)].StringValue = input.Key;
 
                 InputFeedback[count].LinkInputSig(
                     trilist.BooleanInput[joinMap.InputSelectOffset.JoinNumber + (uint) count]);
                 count++;
+            }
+
+            // Some deployed bridge projects pulse standard display input joins (11,12,...) directly.
+            // In samsungUserControl mode, force those joins to input actions to avoid misrouted
+            // power-only behavior when external join-map data is stale or inconsistent.
+            if (_powerCommandSet == PowerCommandSet.SamsungUserControl)
+            {
+                var standardInputJoinOffset = joinStart + 10;
+                for (var i = 0; i < InputPorts.Count; i++)
+                {
+                    var index = i;
+                    trilist.SetSigTrueAction((ushort)(standardInputJoinOffset + i), () =>
+                    {
+                        Debug.Console(1, this, "Samsung fallback input join {0} -> HDMI{1}", standardInputJoinOffset + index, index + 1);
+                        SetInput = index + 1;
+                    });
+                }
             }
 
 
@@ -419,7 +503,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 {
                     PowerOff();
                 }
-                else if (a > 0 && a < InputPorts.Count)
+                else if (a > 0 && a <= InputPorts.Count)
                 {
                     SetInput = a;
 					
@@ -614,8 +698,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 Debug.Console(2, this, "ParseMessage received {0} bytes: {1}", message.Length, ComTextHelper.GetEscapedText(message));
             }
 
-            // Handle power feedback if message has at least 3 bytes
-            if (message.Length >= 3 && (message[2] == 0x01 || message[2] == 0x00))
+            // Handle CEC Report Power Status only:
+            // [Header][0x90][Status]
+            if (message.Length >= 3 && message[1] == 0x90)
             {
                 byte powerByte = message[2];
                 UpdatePowerFb(powerByte);
@@ -656,7 +741,28 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         private void UpdatePowerFb(byte powerByte)
         {
-            var newVal = powerByte == 1;
+            // CEC Power Status values:
+            // 0x00 = On, 0x01 = Standby, 0x02 = In transition Standby->On, 0x03 = In transition On->Standby
+            bool? reportedPower = null;
+
+            switch (powerByte)
+            {
+                case 0x00:
+                    reportedPower = true;
+                    break;
+                case 0x01:
+                    reportedPower = false;
+                    break;
+                case 0x02:
+                case 0x03:
+                    // Transitional states should not force local state changes.
+                    return;
+                default:
+                    return;
+            }
+
+            var newVal = reportedPower.Value;
+
 			if (!newVal)
 			{
 				CurrentInputNumber = 0;
@@ -741,6 +847,162 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             
         }
 
+        private static PowerCommandSet ParsePowerCommandSet(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return PowerCommandSet.Default;
+            }
+
+            if (value.Equals("samsungusercontrol", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("samsung-user-control", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("samsung_user_control", StringComparison.OrdinalIgnoreCase))
+            {
+                return PowerCommandSet.SamsungUserControl;
+            }
+
+            return PowerCommandSet.Default;
+        }
+
+        private string GetPowerOnCommand()
+        {
+            switch (_powerCommandSet)
+            {
+                case PowerCommandSet.SamsungUserControl:
+                    return PowerControlOn;
+                case PowerCommandSet.Default:
+                default:
+                    return PowerControlOn;
+            }
+        }
+
+        private string GetPowerOffCommand()
+        {
+            switch (_powerCommandSet)
+            {
+                case PowerCommandSet.SamsungUserControl:
+                    return PowerControlOffUserControl;
+                case PowerCommandSet.Default:
+                default:
+                    return PowerControlOff;
+            }
+        }
+
+        private void SendPowerOnCommand()
+        {
+            switch (_powerCommandSet)
+            {
+                case PowerCommandSet.SamsungUserControl:
+                    SendSamsungUserControlPowerCommand(GetPowerOnCommand(), true);
+                    return;
+                case PowerCommandSet.Default:
+                default:
+                    Communication.SendText(GetPowerOnCommand());
+                    return;
+            }
+        }
+
+        private void SendPowerOffCommand()
+        {
+            switch (_powerCommandSet)
+            {
+                case PowerCommandSet.SamsungUserControl:
+                    SendSamsungUserControlPowerOffSequence();
+                    return;
+                case PowerCommandSet.Default:
+                default:
+                    Communication.SendText(GetPowerOffCommand());
+                    return;
+            }
+        }
+
+        private void SendSamsungUserControlPowerOffSequence()
+        {
+            // Some Samsung displays respond to standby (0x36) while others respond
+            // to user-control power off (0x44 0x6C). Send both, then key release.
+            Communication.SendText(PowerControlOff);
+            Communication.SendText(PowerControlOffUserControl);
+            Communication.SendText(PowerControlUserControlRelease);
+
+            _samsungPowerRetryTimer?.Stop();
+            _samsungPowerRetryTimer = new CTimer(o =>
+            {
+                if (PowerIsOnFeedback.BoolValue)
+                {
+                    Communication.SendText(PowerControlOff);
+                    Communication.SendText(PowerControlOffUserControl);
+                    Communication.SendText(PowerControlUserControlRelease);
+                }
+
+                _samsungPowerRetryTimer?.Stop();
+                _samsungPowerRetryTimer = null;
+            }, null, 1500);
+        }
+
+        private void SendSamsungUserControlPowerCommand(string command, bool desiredPowerState)
+        {
+            Communication.SendText(command);
+
+            if (desiredPowerState)
+            {
+                // Samsung wake-up is more reliable when user-control power on is followed by CEC view-on
+                // opcodes.
+                Communication.SendText(PowerControlImageViewOn);
+                Communication.SendText(PowerControlTextViewOn);
+            }
+
+            _samsungPowerRetryTimer?.Stop();
+            _samsungPowerRetryTimer = new CTimer(o =>
+            {
+                if (PowerIsOnFeedback.BoolValue != desiredPowerState)
+                {
+                    Communication.SendText(command);
+
+                    if (desiredPowerState)
+                    {
+                        Communication.SendText(PowerControlImageViewOn);
+                    }
+                }
+
+                _samsungPowerRetryTimer?.Stop();
+                _samsungPowerRetryTimer = null;
+            }, null, 1500);
+        }
+
+        private string GetInputHdmi1Command()
+        {
+            switch (_powerCommandSet)
+            {
+                case PowerCommandSet.SamsungUserControl:
+                    return InputControlHdmi1SamsungUserControl;
+                case PowerCommandSet.Default:
+                default:
+                    return InputControlHdmi1;
+            }
+        }
+
+        private string GetInputHdmi2Command()
+        {
+            switch (_powerCommandSet)
+            {
+                case PowerCommandSet.SamsungUserControl:
+                    return InputControlHdmi2SamsungUserControl;
+                case PowerCommandSet.Default:
+                default:
+                    return InputControlHdmi2;
+            }
+        }
+
+        private string GetInputHdmi3Command()
+        {
+            return InputControlHdmi3;
+        }
+
+        private string GetInputHdmi4Command()
+        {
+            return InputControlHdmi4;
+        }
+
         /// <summary>
         /// Power on (Cmd: 0x11) pdf page 42 
         /// Set: [HEADER=0xAA][Cmd=0x11][ID][DATA_LEN=0x01][DATA-1=0x01][CS=0x00]
@@ -749,7 +1011,15 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         {
             _isPoweringOnIgnorePowerFb = true;
 			Debug.Console(2, this, "CallingPowerOn");
-            Communication.SendText(PowerControlOn);
+
+            if (_powerCommandSet == PowerCommandSet.SamsungUserControl)
+            {
+                // Samsung CEC power behavior is inconsistent; always transmit requested command.
+                SendPowerOnCommand();
+                return;
+            }
+
+            SendPowerOnCommand();
 
             if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
             {
@@ -775,11 +1045,19 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         {
             _isPoweringOnIgnorePowerFb = false;
 			Debug.Console(2, this, "CallingPowerOff");
+
+            if (_powerCommandSet == PowerCommandSet.SamsungUserControl)
+            {
+                // Samsung CEC power behavior is inconsistent; always transmit requested command.
+                SendPowerOffCommand();
+                return;
+            }
+
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
             if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
             {
-				Communication.SendText(PowerControlOff);
+				SendPowerOffCommand();
                 _isCoolingDown = true;
                 _powerIsOn = false;
 				CurrentInputNumber = 0;
@@ -831,7 +1109,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// <summary>
         public void InputHdmi1()
         {
-            Communication.SendText(InputControlHdmi1);
+            var command = GetInputHdmi1Command();
+            Debug.Console(1, this, "InputHdmi1 command bytes: {0}", ToLogEscapedHex(command));
+            Communication.SendText(command);
         }
 
         /// <summary>
@@ -839,7 +1119,25 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void InputHdmi2()
         {
-			Communication.SendText(InputControlHdmi2);
+			var command = GetInputHdmi2Command();
+			Debug.Console(1, this, "InputHdmi2 command bytes: {0}", ToLogEscapedHex(command));
+			Communication.SendText(command);
+        }
+
+        private static string ToLogEscapedHex(string command)
+        {
+            if (string.IsNullOrEmpty(command))
+            {
+                return "<empty>";
+            }
+
+            var sb = new StringBuilder();
+            foreach (var c in command)
+            {
+                sb.AppendFormat("[{0:X2}]", (byte)c);
+            }
+
+            return sb.ToString();
         }
 
         /// <summary>
@@ -847,7 +1145,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void InputHdmi3()
         {
-			Communication.SendText(InputControlHdmi3);
+			Communication.SendText(GetInputHdmi3Command());
         }
 
         /// <summary>
@@ -855,7 +1153,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void InputHdmi4()
         {
-			Communication.SendText(InputControlHdmi4);
+			Communication.SendText(GetInputHdmi4Command());
         }
 
  
@@ -875,13 +1173,23 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             //if (!(selector is Action))
             //    Debug.Console(1, this, "WARNING: ExecuteSwitch cannot handle type {0}", selector.GetType());
 
+            var action = selector as Action;
+            if (action == null)
+            {
+                return;
+            }
+
+            // In samsungUserControl mode, input selection should not implicitly trigger
+            // power commands. Keep input routing independent from power control.
+            if (_powerCommandSet == PowerCommandSet.SamsungUserControl)
+            {
+                action();
+                return;
+            }
+
             if (_powerIsOn)
             {
-                var action = selector as Action;
-                if (action != null)
-                {
-                    action();
-                }
+                action();
             }
             else // if power is off, wait until we get on FB to send it. 
             {
@@ -895,11 +1203,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                     }
 
                     IsWarmingUpFeedback.OutputChange -= handler;
-                    var action = selector as Action;
-                    if (action != null)
-                    {
-                        action();
-                    }
+                    action();
                 };
                 IsWarmingUpFeedback.OutputChange += handler; // attach and wait for on FB
                 PowerOn();
