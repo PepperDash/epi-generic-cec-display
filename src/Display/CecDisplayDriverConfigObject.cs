@@ -38,6 +38,9 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         [JsonProperty("inputCommandsHexByInputKey")]
         public Dictionary<string, string> InputCommandsHexByInputKey { get; set; }
 
+        [JsonProperty("activeInputs")]
+        public List<string> ActiveInputs { get; set; }
+
         [JsonProperty("powerOffRequiresInputCommand")]
         public bool? PowerOffRequiresInputCommand { get; set; }
 

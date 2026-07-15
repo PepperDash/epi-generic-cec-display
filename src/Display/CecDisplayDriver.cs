@@ -38,6 +38,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         private string _powerOffInputPreCommand;
         private readonly string _controlPortDevKey;
         private readonly string _controlPortName;
+        private readonly HashSet<string> _activeInputKeys;
 
 
         public List<BoolFeedback> InputFeedback;
@@ -98,6 +99,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             _selectableInputs = new CecSelectableInputs(this);
             _controlPortDevKey = controlPortDevKey;
             _controlPortName = controlPortName;
+            _activeInputKeys = BuildActiveInputKeys(_config);
 
             Id = _config.Id == null ? (byte) 0x01 : Convert.ToByte(_config.Id, 16);
 
@@ -807,21 +809,10 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             //_InputFeedback = new List<bool>();
             InputFeedback = new List<BoolFeedback>();
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this));
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this));
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this));
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this));
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn1, InputHdmi1);
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn2, InputHdmi2);
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn3, InputHdmi3);
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn4, InputHdmi4);
 
 
             for (var i = 0; i < InputPorts.Count; i++)
@@ -908,13 +899,6 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             ParsePowerStatusFromCec(message);
             ParseActiveSourceFromCec(message);
 
-            // Handle power feedback if message has at least 3 bytes
-            if (message.Length >= 3 && (message[2] == 0x01 || message[2] == 0x00))
-            {
-                byte powerByte = message[2];
-                UpdatePowerFb(powerByte);
-            }
-
             // Handle command byte if message has at least 6 bytes
             if (message.Length >= 6)
             {
@@ -959,18 +943,22 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 switch (status)
                 {
                     case 0x00: // On
-                        UpdatePowerFb(0x01);
+                        SetPowerState(true);
                         break;
                     case 0x01: // Standby
-                        UpdatePowerFb(0x00);
+                        SetPowerState(false);
                         break;
                     case 0x02: // In transition from Standby to On
                         _isWarmingUp = true;
+                        _isCoolingDown = false;
                         IsWarmingUpFeedback.FireUpdate();
+                        IsCoolingDownFeedback.FireUpdate();
                         break;
                     case 0x03: // In transition from On to Standby
                         _isCoolingDown = true;
+                        _isWarmingUp = false;
                         IsCoolingDownFeedback.FireUpdate();
+                        IsWarmingUpFeedback.FireUpdate();
                         break;
                 }
             }
@@ -998,11 +986,112 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 var input = (hi >> 4);
                 if (input >= 1 && input <= 4)
                 {
+                    var inputKey = string.Format("hdmiIn{0}", input);
+                    if (!IsInputActive(inputKey))
+                    {
+                        continue;
+                    }
+
                     CurrentInputNumber = input;
-                    _powerIsOn = true;
-                    PowerIsOnFeedback.FireUpdate();
                 }
             }
+        }
+
+        private void AddHdmiInputIfActive(string inputKey, Action selector)
+        {
+            if (!IsInputActive(inputKey))
+            {
+                return;
+            }
+
+            AddRoutingInputPort(
+                new RoutingInputPort(
+                    inputKey,
+                    eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                    eRoutingPortConnectionType.Hdmi,
+                    selector,
+                    this
+                )
+            );
+        }
+
+        private static HashSet<string> BuildActiveInputKeys(CecDisplayDriverPropertiesConfig config)
+        {
+            var allInputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                RoutingPortNames.HdmiIn1,
+                RoutingPortNames.HdmiIn2,
+                RoutingPortNames.HdmiIn3,
+                RoutingPortNames.HdmiIn4
+            };
+
+            var configured = config != null ? config.ActiveInputs : null;
+            if (configured == null || configured.Count == 0)
+            {
+                return allInputs;
+            }
+
+            var normalized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var input in configured)
+            {
+                string key;
+                if (TryNormalizeInputKey(input, out key) && allInputs.Contains(key))
+                {
+                    normalized.Add(key);
+                }
+            }
+
+            return normalized.Count > 0 ? normalized : allInputs;
+        }
+
+        private bool IsInputActive(string inputKey)
+        {
+            return _activeInputKeys != null && _activeInputKeys.Contains(inputKey);
+        }
+
+        private static bool TryNormalizeInputKey(string input, out string normalized)
+        {
+            normalized = null;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return false;
+            }
+
+            var value = input.Trim();
+            if (value.Equals("hdmi1", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin1", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn1;
+                return true;
+            }
+
+            if (value.Equals("hdmi2", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin2", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn2;
+                return true;
+            }
+
+            if (value.Equals("hdmi3", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin3", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn3;
+                return true;
+            }
+
+            if (value.Equals("hdmi4", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin4", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn4;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void SetPowerState(bool isOn)
+        {
+            _isWarmingUp = false;
+            _isCoolingDown = false;
+            IsWarmingUpFeedback.FireUpdate();
+            IsCoolingDownFeedback.FireUpdate();
+            UpdatePowerFb((byte)(isOn ? 1 : 0));
         }
 
 
