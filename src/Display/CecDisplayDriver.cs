@@ -1,18 +1,22 @@
 ﻿using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
+using Crestron.SimplSharpPro.DM;
 using Newtonsoft.Json;
 using PepperDash.Core;
+using PepperDash.Core.Logging;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
+using PepperDash.Essentials.Core.DeviceTypeInterfaces;
 using PepperDash.Essentials.Devices.Common.Displays;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Feedback = PepperDash.Essentials.Core.Feedback;
 
 namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 {
-    public class CecDisplayDriverDisplayController : TwoWayDisplayBase, IBasicVolumeControls, ICommunicationMonitor,
+    public class CecDisplayDriverDisplayController : TwoWayDisplayBase, IHasInputs<string>, IBasicVolumeControls, ICommunicationMonitor,
         IBridgeAdvanced
     {
         public const int InputPowerOn = 101;
@@ -25,6 +29,16 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         private readonly long _pollIntervalMs;
         private readonly int _upperLimit;
         private readonly uint _warmingTimeMs;
+        private string _powerOnCommand;
+        private string _powerOffCommand;
+        private string _powerStatusCommand;
+        private readonly Dictionary<string, string> _inputCommandsByKey =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private bool _powerOffRequiresInputCommand;
+        private string _powerOffInputPreCommand;
+        private readonly string _controlPortDevKey;
+        private readonly string _controlPortName;
+        private readonly HashSet<string> _activeInputKeys;
 
 
         public List<BoolFeedback> InputFeedback;
@@ -45,8 +59,11 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 			private set
 			{
 				_CurrentInputNumber = value;
+                    _currentInputPort = (value > 0 && value <= InputPorts.Count) ? InputPorts[value - 1] : null;
+                    CurrentInputFeedback.FireUpdate();
 				InputNumberFeedback.FireUpdate();
 				UpdateBooleanFeedback();
+                    _selectableInputs.NotifyCurrentItemChanged();
 			}
 		}
 		private int _CurrentInputNumber;
@@ -57,6 +74,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         private bool _isWarmingUp;
         private bool _lastCommandSentWasVolume;
         private int _lastVolumeSent;
+        private string _lastInputCommandSent;
         private CCriticalSection _parseLock = new CCriticalSection();
         private bool _powerIsOn;
 
@@ -70,12 +88,18 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// <param name="comms"></param>
         //public SamsungMdcDisplayController(string key, string name, DeviceConfig config) : base(key, name)
         public CecDisplayDriverDisplayController(string key, string name, CecDisplayDriverPropertiesConfig config,
-            IBasicCommunication comms)
+            IBasicCommunication comms,
+            string controlPortDevKey = null,
+            string controlPortName = null)
             : base(key, name)
         {
             Communication = comms;
             Communication.BytesReceived += Communication_BytesReceived;
             _config = config;
+            _selectableInputs = new CecSelectableInputs(this);
+            _controlPortDevKey = controlPortDevKey;
+            _controlPortName = controlPortName;
+            _activeInputKeys = BuildActiveInputKeys(_config);
 
             Id = _config.Id == null ? (byte) 0x01 : Convert.ToByte(_config.Id, 16);
 
@@ -85,6 +109,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             _pollIntervalMs = _config.pollIntervalMs;
             _coolingTimeMs = _config.coolingTimeMs;
             _warmingTimeMs = _config.warmingTimeMs;
+
+            ConfigureCommands();
 
             Init();
         }
@@ -98,12 +124,114 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 			get { return CurrentInputNumber; }
             set 
 			{
-				if (value > 0 && value < InputPorts.Count)
+                if (value > 0 && value <= InputPorts.Count)
 				{
 					ExecuteSwitch(InputPorts.ElementAt(value - 1).Selector);
 					CurrentInputNumber = value;
 				}
 			}
+        }
+
+        public ISelectableItems<string> Inputs
+        {
+            get { return _selectableInputs; }
+        }
+
+        private readonly CecSelectableInputs _selectableInputs;
+
+        private class CecSelectableInputs : ISelectableItems<string>
+        {
+            private readonly CecDisplayDriverDisplayController _owner;
+
+            public CecSelectableInputs(CecDisplayDriverDisplayController owner)
+            {
+                _owner = owner;
+                Items = new Dictionary<string, ISelectableItem>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            public Dictionary<string, ISelectableItem> Items { get; set; }
+
+            public string CurrentItem
+            {
+                get;
+                set;
+            }
+
+            public event EventHandler ItemsUpdated;
+            public event EventHandler CurrentItemChanged;
+
+            public void SetItems(IEnumerable<RoutingInputPort> ports)
+            {
+                var newItems = new Dictionary<string, ISelectableItem>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var port in ports)
+                {
+                    newItems[port.Key] = new CecSelectableItem(
+                        _owner,
+                        port.Key,
+                        GetInputDisplayName(port.Key)
+                    );
+                }
+
+                Items = newItems;
+                CurrentItem = _owner.GetCurrentInputKey();
+                var handler = ItemsUpdated;
+                if (handler != null)
+                {
+                    handler(this, EventArgs.Empty);
+                }
+            }
+
+            public void NotifyCurrentItemChanged()
+            {
+                CurrentItem = _owner.GetCurrentInputKey();
+
+                foreach (var item in Items.Values.OfType<CecSelectableItem>())
+                {
+                    item.NotifyItemUpdated();
+                }
+
+                var handler = CurrentItemChanged;
+                if (handler != null)
+                {
+                    handler(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        private class CecSelectableItem : ISelectableItem
+        {
+            private readonly CecDisplayDriverDisplayController _owner;
+
+            public CecSelectableItem(CecDisplayDriverDisplayController owner, string key, string name)
+            {
+                _owner = owner;
+                Key = key;
+                Name = name;
+            }
+
+            public string Key { get; private set; }
+            public string Name { get; private set; }
+
+            public bool IsSelected { get; set; }
+
+            public event EventHandler ItemUpdated;
+
+            public void Select()
+            {
+                _owner.SelectInputByKey(Key);
+            }
+
+            public void NotifyItemUpdated()
+            {
+                IsSelected = string.Equals(_owner.GetCurrentInputKey(), Key, StringComparison.OrdinalIgnoreCase);
+
+                var handler = ItemUpdated;
+                if (handler != null)
+                {
+                    handler(this, EventArgs.Empty);
+                }
+            }
         }
 
 
@@ -124,7 +252,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
         protected override Func<string> CurrentInputFeedbackFunc
         {
-            get { return () => _currentInputPort.Key; }
+            get { return () => _currentInputPort != null ? _currentInputPort.Key : string.Empty; }
         }
 
         /// <summary>
@@ -166,6 +294,11 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// Power control off
         /// </summary>
 		public const string PowerControlOff = "\x40\x36";
+
+        public const string SamsungBePowerControlOn = "\x40\x04";
+        public const string SamsungBeInputControlHdmi1 = "\x4F\x82\x10\x00";
+        public const string SamsungBeInputControlHdmi2 = "\x4F\x82\x20\x00";
+        public const string SamsungBeInputControlHdmi3 = "\x4F\x82\x30\x00";
 
         /// <summary>
         /// Volume mute control data1 - on 
@@ -271,6 +404,164 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// Virtual remote control data1 (keyCode) - Exit (0x2D)
         /// </summary>
         public const byte VirtualRemoteExit = 0x2D;
+
+
+        private void ConfigureCommands()
+        {
+            var configuredProfileName = string.IsNullOrWhiteSpace(_config?.CecProfile)
+                ? "generic"
+                : _config.CecProfile;
+
+            var profile = GetProfile(_config?.CecProfile);
+
+            _powerOnCommand = ResolveCommandText(
+                _config?.PowerOnCommandHex,
+                profile.PowerOnHex,
+                PowerControlOn
+            );
+
+            _powerOffCommand = ResolveCommandText(
+                _config?.PowerOffCommandHex,
+                profile.PowerOffHex,
+                PowerControlOff
+            );
+
+            _powerStatusCommand = ResolveCommandText(
+                _config?.PowerStatusCommandHex,
+                profile.PowerStatusHex,
+                PowerStatusCmd
+            );
+
+            var profileInputCommands = profile.InputHexByInputKey
+                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            var configInputCommands = _config?.InputCommandsHexByInputKey
+                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            SetInputCommand("hdmiIn1", configInputCommands, profileInputCommands, InputControlHdmi1);
+            SetInputCommand("hdmiIn2", configInputCommands, profileInputCommands, InputControlHdmi2);
+            SetInputCommand("hdmiIn3", configInputCommands, profileInputCommands, InputControlHdmi3);
+            SetInputCommand("hdmiIn4", configInputCommands, profileInputCommands, InputControlHdmi4);
+
+            _powerOffRequiresInputCommand =
+                _config?.PowerOffRequiresInputCommand
+                ?? profile.PowerOffRequiresInputCommand;
+
+            _powerOffInputPreCommand = ResolveCommandText(
+                _config?.PowerOffInputPreCommandHex,
+                profile.PowerOffInputPreCommandHex,
+                null
+            );
+
+        }
+
+        private void SetInputCommand(
+            string inputKey,
+            IDictionary<string, string> configInputCommands,
+            IDictionary<string, string> profileInputCommands,
+            string fallbackCommand
+        )
+        {
+            string configHex;
+            configInputCommands.TryGetValue(inputKey, out configHex);
+
+            string profileHex;
+            profileInputCommands.TryGetValue(inputKey, out profileHex);
+
+            _inputCommandsByKey[inputKey] = ResolveCommandText(configHex, profileHex, fallbackCommand);
+        }
+
+        private static string ResolveCommandText(string configHex, string profileHex, string fallbackCommand)
+        {
+            string commandText;
+            if (TryHexToCommandText(configHex, out commandText))
+            {
+                return commandText;
+            }
+
+            if (TryHexToCommandText(profileHex, out commandText))
+            {
+                return commandText;
+            }
+
+            return fallbackCommand;
+        }
+
+        private static bool TryHexToCommandText(string hex, out string commandText)
+        {
+            commandText = null;
+
+            if (string.IsNullOrWhiteSpace(hex))
+            {
+                return false;
+            }
+
+            var parts = hex
+                .Split(new[] { ' ', '\t', '\r', '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? p.Substring(2) : p)
+                .ToArray();
+
+            if (parts.Length == 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                var bytes = parts.Select(p => Convert.ToByte(p, 16)).ToArray();
+                commandText = new string(bytes.Select(b => (char)b).ToArray());
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static CecCommandProfile GetProfile(string profileName)
+        {
+            if (string.Equals(profileName, "samsungbe", StringComparison.OrdinalIgnoreCase))
+            {
+                return new CecCommandProfile
+                {
+                    PowerOnHex = "40 04",
+                    PowerOffHex = "40 36",
+                    PowerStatusHex = "40 8F",
+                    PowerOffRequiresInputCommand = true,
+                    InputHexByInputKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "hdmiIn1", "4F 82 10 00" },
+                        { "hdmiIn2", "4F 82 20 00" },
+                        { "hdmiIn3", "4F 82 30 00" }
+                    }
+                };
+            }
+
+            return new CecCommandProfile
+            {
+                PowerOnHex = "40 44 6D",
+                PowerOffHex = "40 36",
+                PowerStatusHex = "40 8F",
+                PowerOffRequiresInputCommand = false,
+                InputHexByInputKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "hdmiIn1", "4F 82 10 00" },
+                    { "hdmiIn2", "4F 82 20 00" },
+                    { "hdmiIn3", "4F 82 30 00" },
+                    { "hdmiIn4", "4F 82 40 00" }
+                }
+            };
+        }
+
+        private sealed class CecCommandProfile
+        {
+            public string PowerOnHex { get; set; }
+            public string PowerOffHex { get; set; }
+            public string PowerStatusHex { get; set; }
+            public Dictionary<string, string> InputHexByInputKey { get; set; }
+            public bool PowerOffRequiresInputCommand { get; set; }
+            public string PowerOffInputPreCommandHex { get; set; }
+        }
 
 
 
@@ -518,21 +809,10 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             //_InputFeedback = new List<bool>();
             InputFeedback = new List<BoolFeedback>();
 
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn1, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi1), this));
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi2), this));
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi3), this));
-
-            AddRoutingInputPort(
-                new RoutingInputPort(RoutingPortNames.HdmiIn4, eRoutingSignalType.Audio | eRoutingSignalType.Video,
-                    eRoutingPortConnectionType.Hdmi, new Action(InputHdmi4), this));
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn1, InputHdmi1);
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn2, InputHdmi2);
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn3, InputHdmi3);
+            AddHdmiInputIfActive(RoutingPortNames.HdmiIn4, InputHdmi4);
 
 
             for (var i = 0; i < InputPorts.Count; i++)
@@ -541,6 +821,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
 				InputFeedback.Add(new BoolFeedback(() => CurrentInputNumber == j + 1));
             }
+
+            _selectableInputs.SetItems(InputPorts);
 
             InputNumberFeedback = new IntFeedback(() =>
             {
@@ -614,12 +896,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 Debug.Console(2, this, "ParseMessage received {0} bytes: {1}", message.Length, ComTextHelper.GetEscapedText(message));
             }
 
-            // Handle power feedback if message has at least 3 bytes
-            if (message.Length >= 3 && (message[2] == 0x01 || message[2] == 0x00))
-            {
-                byte powerByte = message[2];
-                UpdatePowerFb(powerByte);
-            }
+            ParsePowerStatusFromCec(message);
+            ParseActiveSourceFromCec(message);
 
             // Handle command byte if message has at least 6 bytes
             if (message.Length >= 6)
@@ -648,6 +926,172 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 // Log short messages for debugging
                 Debug.Console(1, this, "Short message received ({0} bytes): {1}", message.Length, ComTextHelper.GetEscapedText(message));
             }
+        }
+
+        private void ParsePowerStatusFromCec(byte[] message)
+        {
+            // Report Power Status opcode is 0x90 with next byte status value
+            for (var i = 0; i < message.Length - 1; i++)
+            {
+                if (message[i] != 0x90)
+                {
+                    continue;
+                }
+
+                var status = message[i + 1];
+
+                switch (status)
+                {
+                    case 0x00: // On
+                        SetPowerState(true);
+                        break;
+                    case 0x01: // Standby
+                        SetPowerState(false);
+                        break;
+                    case 0x02: // In transition from Standby to On
+                        _isWarmingUp = true;
+                        _isCoolingDown = false;
+                        IsWarmingUpFeedback.FireUpdate();
+                        IsCoolingDownFeedback.FireUpdate();
+                        break;
+                    case 0x03: // In transition from On to Standby
+                        _isCoolingDown = true;
+                        _isWarmingUp = false;
+                        IsCoolingDownFeedback.FireUpdate();
+                        IsWarmingUpFeedback.FireUpdate();
+                        break;
+                }
+            }
+        }
+
+        private void ParseActiveSourceFromCec(byte[] message)
+        {
+            // Active Source opcode is 0x82, followed by two-byte physical address
+            for (var i = 0; i < message.Length - 2; i++)
+            {
+                if (message[i] != 0x82)
+                {
+                    continue;
+                }
+
+                var hi = message[i + 1];
+                var lo = message[i + 2];
+
+                // Typical source addresses mapped for this plugin: 1.0.0.0, 2.0.0.0, 3.0.0.0, 4.0.0.0
+                if (lo != 0x00)
+                {
+                    continue;
+                }
+
+                var input = (hi >> 4);
+                if (input >= 1 && input <= 4)
+                {
+                    var inputKey = string.Format("hdmiIn{0}", input);
+                    if (!IsInputActive(inputKey))
+                    {
+                        continue;
+                    }
+
+                    CurrentInputNumber = input;
+                }
+            }
+        }
+
+        private void AddHdmiInputIfActive(string inputKey, Action selector)
+        {
+            if (!IsInputActive(inputKey))
+            {
+                return;
+            }
+
+            AddRoutingInputPort(
+                new RoutingInputPort(
+                    inputKey,
+                    eRoutingSignalType.Audio | eRoutingSignalType.Video,
+                    eRoutingPortConnectionType.Hdmi,
+                    selector,
+                    this
+                )
+            );
+        }
+
+        private static HashSet<string> BuildActiveInputKeys(CecDisplayDriverPropertiesConfig config)
+        {
+            var allInputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                RoutingPortNames.HdmiIn1,
+                RoutingPortNames.HdmiIn2,
+                RoutingPortNames.HdmiIn3,
+                RoutingPortNames.HdmiIn4
+            };
+
+            var configured = config != null ? config.ActiveInputs : null;
+            if (configured == null || configured.Count == 0)
+            {
+                return allInputs;
+            }
+
+            var normalized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var input in configured)
+            {
+                string key;
+                if (TryNormalizeInputKey(input, out key) && allInputs.Contains(key))
+                {
+                    normalized.Add(key);
+                }
+            }
+
+            return normalized.Count > 0 ? normalized : allInputs;
+        }
+
+        private bool IsInputActive(string inputKey)
+        {
+            return _activeInputKeys != null && _activeInputKeys.Contains(inputKey);
+        }
+
+        private static bool TryNormalizeInputKey(string input, out string normalized)
+        {
+            normalized = null;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return false;
+            }
+
+            var value = input.Trim();
+            if (value.Equals("hdmi1", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin1", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn1;
+                return true;
+            }
+
+            if (value.Equals("hdmi2", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin2", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn2;
+                return true;
+            }
+
+            if (value.Equals("hdmi3", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin3", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn3;
+                return true;
+            }
+
+            if (value.Equals("hdmi4", StringComparison.OrdinalIgnoreCase) || value.Equals("hdmiin4", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = RoutingPortNames.HdmiIn4;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void SetPowerState(bool isOn)
+        {
+            _isWarmingUp = false;
+            _isCoolingDown = false;
+            IsWarmingUpFeedback.FireUpdate();
+            IsCoolingDownFeedback.FireUpdate();
+            UpdatePowerFb((byte)(isOn ? 1 : 0));
         }
 
 
@@ -737,7 +1181,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void StatusGet()
         {
-			   Communication.SendText("\x40\x8F");
+			   SendCecCommand(_powerStatusCommand ?? PowerStatusCmd);
             
         }
 
@@ -749,7 +1193,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         {
             _isPoweringOnIgnorePowerFb = true;
 			Debug.Console(2, this, "CallingPowerOn");
-            Communication.SendText(PowerControlOn);
+            SendCecCommand(_powerOnCommand ?? PowerControlOn);
 
             if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
             {
@@ -779,7 +1223,38 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             // remove this check.
             if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
             {
-				Communication.SendText(PowerControlOff);
+                if (_powerOffRequiresInputCommand)
+                {
+                    var inputPreCommand = _powerOffInputPreCommand;
+
+                    if (string.IsNullOrEmpty(inputPreCommand))
+                    {
+                        if (!string.IsNullOrEmpty(_lastInputCommandSent))
+                        {
+                            inputPreCommand = _lastInputCommandSent;
+                        }
+                        else if (CurrentInputNumber > 0 && CurrentInputNumber <= InputPorts.Count)
+                        {
+                            var currentInputKey = InputPorts[CurrentInputNumber - 1].Key;
+                            string currentInputCommand;
+                            if (_inputCommandsByKey.TryGetValue(currentInputKey, out currentInputCommand))
+                            {
+                                inputPreCommand = currentInputCommand;
+                            }
+                        }
+                        else
+                        {
+                            inputPreCommand = _inputCommandsByKey["hdmiIn1"];
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(inputPreCommand))
+                    {
+                        SendCecCommand(inputPreCommand);
+                    }
+                }
+
+                SendCecCommand(_powerOffCommand ?? PowerControlOff);
                 _isCoolingDown = true;
                 _powerIsOn = false;
 				CurrentInputNumber = 0;
@@ -831,7 +1306,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// <summary>
         public void InputHdmi1()
         {
-            Communication.SendText(InputControlHdmi1);
+            SendInputCommand("hdmiIn1", InputControlHdmi1);
         }
 
         /// <summary>
@@ -839,7 +1314,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void InputHdmi2()
         {
-			Communication.SendText(InputControlHdmi2);
+			SendInputCommand("hdmiIn2", InputControlHdmi2);
         }
 
         /// <summary>
@@ -847,7 +1322,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void InputHdmi3()
         {
-			Communication.SendText(InputControlHdmi3);
+			SendInputCommand("hdmiIn3", InputControlHdmi3);
         }
 
         /// <summary>
@@ -855,7 +1330,175 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// </summary>
         public void InputHdmi4()
         {
-			Communication.SendText(InputControlHdmi4);
+            SendInputCommand("hdmiIn4", InputControlHdmi4);
+        }
+
+        private void SendInputCommand(string inputKey, string fallbackCommand)
+        {
+            string command;
+            if (!_inputCommandsByKey.TryGetValue(inputKey, out command) || string.IsNullOrEmpty(command))
+            {
+                command = fallbackCommand;
+            }
+
+            _lastInputCommandSent = command;
+            SendCecCommand(command);
+        }
+
+        private void SendCecCommand(string command)
+        {
+            if (string.IsNullOrEmpty(command))
+            {
+                return;
+            }
+
+            EnsureCecPortBound();
+            Communication.SendBytes(CommandTextToBytes(command));
+        }
+
+        private void EnsureCecPortBound()
+        {
+            if (Communication == null)
+            {
+                return;
+            }
+
+            var commType = Communication.GetType();
+            if (!string.Equals(commType.Name, "CecPortController", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            FieldInfo portField;
+            try
+            {
+                portField = commType.GetField("Port", BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (portField == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (portField.GetValue(Communication) != null)
+                {
+                    return;
+                }
+
+                var cecPort = ResolveConfiguredCecPort();
+                if (cecPort == null)
+                {
+                    return;
+                }
+
+                portField.SetValue(Communication, cecPort);
+            }
+            catch (Exception ex)
+            {
+                this.LogError(ex, "Error while attempting CEC lazy-bind for {deviceKey}", Key);
+            }
+        }
+
+        private ICec ResolveConfiguredCecPort()
+        {
+            if (string.IsNullOrWhiteSpace(_controlPortDevKey))
+            {
+                return null;
+            }
+
+            var ioDevice = DeviceManager.GetDeviceForKey(_controlPortDevKey) as IRoutingInputsOutputs;
+            if (ioDevice == null)
+            {
+                return null;
+            }
+
+            var names = new List<string>();
+            if (!string.IsNullOrWhiteSpace(_controlPortName))
+            {
+                names.Add(_controlPortName);
+            }
+
+            names.Add("HdmiOutput");
+            names.Add("hdmiOut");
+            names.Add("hdmiout");
+
+            foreach (var name in names.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var inputPort = ioDevice.InputPorts[name];
+                if (inputPort != null && inputPort.Port is ICec)
+                {
+                    return inputPort.Port as ICec;
+                }
+
+                var outputPort = ioDevice.OutputPorts[name];
+                if (outputPort != null && outputPort.Port is ICec)
+                {
+                    return outputPort.Port as ICec;
+                }
+            }
+
+            return null;
+        }
+
+        private static byte[] CommandTextToBytes(string command)
+        {
+            return command.Select(c => (byte)c).ToArray();
+        }
+
+        private static string CommandTextToHex(string command)
+        {
+            if (string.IsNullOrEmpty(command))
+            {
+                return "";
+            }
+
+            var bytes = command.Select(c => (byte)c).ToArray();
+            return string.Join(" ", bytes.Select(b => b.ToString("X2")));
+        }
+
+        private string GetCurrentInputKey()
+        {
+            if (CurrentInputNumber <= 0 || CurrentInputNumber > InputPorts.Count)
+            {
+                return string.Empty;
+            }
+
+            return InputPorts[CurrentInputNumber - 1].Key;
+        }
+
+        private void SelectInputByKey(string inputKey)
+        {
+            for (var i = 0; i < InputPorts.Count; i++)
+            {
+                if (string.Equals(InputPorts[i].Key, inputKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    SetInput = i + 1;
+                    return;
+                }
+            }
+        }
+
+        private static string GetInputDisplayName(string inputKey)
+        {
+            switch (inputKey)
+            {
+                case RoutingPortNames.HdmiIn1:
+                    return "HDMI 1";
+                case RoutingPortNames.HdmiIn2:
+                    return "HDMI 2";
+                case RoutingPortNames.HdmiIn3:
+                    return "HDMI 3";
+                case RoutingPortNames.HdmiIn4:
+                    return "HDMI 4";
+                default:
+                    return inputKey;
+            }
         }
 
  

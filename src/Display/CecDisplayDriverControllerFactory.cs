@@ -17,6 +17,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
         public override EssentialsDevice BuildDevice(DeviceConfig dc)
         {
+            var controlConfig = CommFactory.GetControlPropertiesConfig(dc);
 
             var comms = CommFactory.CreateCommForDevice(dc);
 
@@ -30,7 +31,14 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
             if (config != null)
             {
-                return new CecDisplayDriverDisplayController(dc.Key, dc.Name, config, comms);
+                return new CecDisplayDriverDisplayController(
+                    dc.Key,
+                    dc.Name,
+                    config,
+                    comms,
+                    controlConfig != null ? controlConfig.ControlPortDevKey : null,
+                    controlConfig != null ? controlConfig.ControlPortName : null
+                );
             }
 
             Debug.Console(0, Debug.ErrorLogLevel.Error, "Unable to deserialize config for device {0}", dc.Key);
