@@ -1,7 +1,7 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
+namespace PepperDash.Essentials.Plugins.Display
 {
 	public class CecDisplayDriverPropertiesConfig
 	{

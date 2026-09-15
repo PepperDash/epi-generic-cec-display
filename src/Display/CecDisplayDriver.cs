@@ -1,8 +1,9 @@
-﻿using Crestron.SimplSharp;
+using Crestron.SimplSharp;
 using Crestron.SimplSharpPro.DeviceSupport;
 using Crestron.SimplSharpPro.DM;
 using Newtonsoft.Json;
 using PepperDash.Core;
+using Serilog.Events;
 using PepperDash.Core.Logging;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
@@ -14,7 +15,7 @@ using System.Linq;
 using System.Reflection;
 using Feedback = PepperDash.Essentials.Core.Feedback;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
+namespace PepperDash.Essentials.Plugins.Display
 {
     public class CecDisplayDriverDisplayController : TwoWayDisplayBase, IHasInputs<string>, IBasicVolumeControls, ICommunicationMonitor,
         IBridgeAdvanced
@@ -665,8 +666,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 joinMap = JsonConvert.DeserializeObject<CecDisplayDriverControllerJoinMap>(joinMapSerialized);
             }
 
-            Debug.Console(1, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
-            Debug.Console(0, "Linking to Display: {0}", Name);
+            Debug.LogMessage(LogEventLevel.Information, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
+            Debug.LogMessage(LogEventLevel.Error, "Linking to Display: {0}", Name);
 
             trilist.StringInput[joinMap.Name.JoinNumber].StringValue = Name;
 
@@ -719,7 +720,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 {
                     PowerToggle();
                 }
-                Debug.Console(2, this, "InputChange {0}", a);
+                this.LogDebug("InputChange {0}", a);
             });
 
             // Volume
@@ -799,7 +800,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
             CommunicationMonitor.StatusChange += (sender, args) =>
             {
-                Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
+                this.LogDebug("Device status: {0}", CommunicationMonitor.Status);
                 StatusFeedback.FireUpdate();
             };
         }
@@ -826,7 +827,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
             InputNumberFeedback = new IntFeedback(() =>
             {
-                //Debug.Console(2, this, "Change Input number {0}", _inputNumber);
+                //this.LogDebug("Change Input number {0}", _inputNumber);
 				return CurrentInputNumber;
             });
         }
@@ -836,11 +837,11 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         /// Custom activate
         /// </summary>
         /// <returns></returns>
-        public override bool CustomActivate()
+        protected override bool CustomActivate()
         {
             Communication.Connect();
             CommunicationMonitor.StatusChange +=
-                (o, a) => Debug.Console(2, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
+                (o, a) => this.LogDebug("Communication monitor state: {0}", CommunicationMonitor.Status);
             CommunicationMonitor.Start();
             return true;
         }
@@ -854,7 +855,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         {
             try
             {
-                //Debug.Console(2, this, "Received from e:{0}", ComTextHelper.GetEscapedText(e.Bytes));
+                //this.LogDebug("Received from e:{0}", ComTextHelper.GetEscapedText(e.Bytes));
 
                 // Append the incoming bytes with whatever is in the buffer
                 var newBytes = new byte[_incomingBuffer.Length + e.Bytes.Length];
@@ -870,15 +871,15 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 {
                     // This check is here to prevent
                     // following string format from building unnecessarily on level 0 or 1
-                    Debug.Console(2, this, "Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
+                    this.LogDebug("Received new bytes:{0}", ComTextHelper.GetEscapedText(newBytes));
                 }
 
 
             }
             catch (Exception ex)
             {
-                Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Exception parsing feedback: {0}", ex.Message));
-                Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Stack trace: {0}", ex.StackTrace));
+                this.LogWarning("Exception parsing feedback: {0}", ex.Message);
+                this.LogWarning("Stack trace: {0}", ex.StackTrace);
             }
         }
 
@@ -887,13 +888,13 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             // Validate message is not null and has minimum length
             if (message == null || message.Length == 0)
             {
-                Debug.Console(1, this, "Message is null or empty");
+                this.LogInformation("Message is null or empty");
                 return;
             }
 
             if (Debug.Level == 2)
             {
-                Debug.Console(2, this, "ParseMessage received {0} bytes: {1}", message.Length, ComTextHelper.GetEscapedText(message));
+                this.LogDebug("ParseMessage received {0} bytes: {1}", message.Length, ComTextHelper.GetEscapedText(message));
             }
 
             ParsePowerStatusFromCec(message);
@@ -915,7 +916,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                         {
                             if (Debug.Level >= 1)
                             {
-                                Debug.Console(1, this, "Unknown command 0x{0:X2} in message: {1}", command, ComTextHelper.GetEscapedText(message));
+                                this.LogInformation("Unknown command 0x{0:X2} in message: {1}", command, ComTextHelper.GetEscapedText(message));
                             }
                             break;
                         }
@@ -924,7 +925,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             else if (message.Length < 3)
             {
                 // Log short messages for debugging
-                Debug.Console(1, this, "Short message received ({0} bytes): {1}", message.Length, ComTextHelper.GetEscapedText(message));
+                this.LogInformation("Short message received ({0} bytes): {1}", message.Length, ComTextHelper.GetEscapedText(message));
             }
         }
 
@@ -1192,7 +1193,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         public override void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
-			Debug.Console(2, this, "CallingPowerOn");
+			this.LogDebug("CallingPowerOn");
             SendCecCommand(_powerOnCommand ?? PowerControlOn);
 
             if (PowerIsOnFeedback.BoolValue || _isWarmingUp || _isCoolingDown)
@@ -1202,13 +1203,15 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             _isWarmingUp = true;
             IsWarmingUpFeedback.FireUpdate();
             // Fake power-up cycle
-            WarmupTimer = new CTimer(o =>
+            WarmupTimer = new System.Timers.Timer(WarmupTime) { AutoReset = false };
+            WarmupTimer.Elapsed += (o, a) =>
             {
                 _isWarmingUp = false;
                 _powerIsOn = true;
                 IsWarmingUpFeedback.FireUpdate();
                 PowerIsOnFeedback.FireUpdate();
-            }, WarmupTime);
+            };
+            WarmupTimer.Start();
         }
 
         /// <summary>
@@ -1218,7 +1221,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         public override void PowerOff()
         {
             _isPoweringOnIgnorePowerFb = false;
-			Debug.Console(2, this, "CallingPowerOff");
+			this.LogDebug("CallingPowerOff");
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
             if (!_isWarmingUp && !_isCoolingDown) // PowerIsOnFeedback.BoolValue &&
@@ -1263,11 +1266,13 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 PowerIsOnFeedback.FireUpdate();
                 IsCoolingDownFeedback.FireUpdate();
                 // Fake cool-down cycle
-                CooldownTimer = new CTimer(o =>
+                CooldownTimer = new System.Timers.Timer(CooldownTime) { AutoReset = false };
+                CooldownTimer.Elapsed += (o, a) =>
                 {
                     _isCoolingDown = false;
                     IsCoolingDownFeedback.FireUpdate();
-                }, CooldownTime);
+                };
+                CooldownTimer.Start();
             }
         }
 
@@ -1283,7 +1288,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
             }
             catch (Exception e)
             {
-                Debug.Console(0, this, "Exception Here - {0}", e.Message);
+                this.LogError("Exception Here - {0}", e.Message);
             }
         }
 
@@ -1412,7 +1417,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 return null;
             }
 
-            var ioDevice = DeviceManager.GetDeviceForKey(_controlPortDevKey) as IRoutingInputsOutputs;
+            var ioDevice = DeviceManager.GetDeviceForKey(_controlPortDevKey) as IRoutingMidpoint;
             if (ioDevice == null)
             {
                 return null;
@@ -1516,7 +1521,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
         public override void ExecuteSwitch(object selector)
         {
             //if (!(selector is Action))
-            //    Debug.Console(1, this, "WARNING: ExecuteSwitch cannot handle type {0}", selector.GetType());
+            //    this.LogInformation("WARNING: ExecuteSwitch cannot handle type {0}", selector.GetType());
 
             if (_powerIsOn)
             {

@@ -2,27 +2,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<ProjectType>ProgramLibrary</ProjectType>
-	</PropertyGroup>
-	<PropertyGroup>
-		<TargetFramework>net472</TargetFramework>
-		<RootNamespace>Pepperdash.Essentials.Plugins.Generic.Cec</RootNamespace>
+		<TargetFramework>net8</TargetFramework>
+		<RootNamespace>PepperDash.Essentials.Plugins</RootNamespace>
+		<AssemblyName>PepperDash.Essentials.Plugins.Generic.Cec.Display</AssemblyName>
+		<Configurations>Debug;Release</Configurations>
 		<Deterministic>false</Deterministic>
-		<AssemblyTitle>Pepperdash.Essentials.Plugins.Generic.Cec</AssemblyTitle>
-		<Company>PepperDash Technologies</Company>
-		<Description>This software is a plugin designed to work as a part of PepperDash Essentials for Crestron control processors. This plugin allows for control of Sony Bravia Displays.</Description>
-		<Copyright>Copyright @ 2025</Copyright>
-		<Version>1.0.0-local</Version>
 		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-		<InformationalVersion>$(Version)</InformationalVersion>
-		<OutputPath>bin\$(Configuration)\</OutputPath>
-		<Authors>PepperDash Technologies</Authors>
-		<PackageId>Pepperdash.Essentials.Plugins.Generic.Cec.Display</PackageId>
-		<PackageProjectUrl>https://github.com/PepperDash/epi-generic-cec-display.git</PackageProjectUrl>
-		<PackageTags>crestron 4series CEC</PackageTags>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<DefineConstants>$(DefineConstants);SERIES4</DefineConstants>
+		<AssemblyTitle>EPI.Generic.Cec.Display</AssemblyTitle>
+		<Description>PepperDash Essentials plugin for control of generic CEC displays and soundbars.</Description>
+		<PackageId>PepperDash.Essentials.Plugins.Generic.Cec.Display</PackageId>
+		<PackageProjectUrl>https://github.com/PepperDash/epi-generic-cec-display</PackageProjectUrl>
+		<PackageTags>crestron 4series cec display soundbar</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -32,7 +22,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="PepperDashEssentials" Version="2.1.0">
+		<PackageReference Include="Crestron.SimplSharp.SDK.ProgramLibrary" Version="2.21.128" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+		<PackageReference Include="PepperDashEssentials" Version="3.0.0-feat-routing-slot-online-sync.2">
 			<ExcludeAssets>runtime</ExcludeAssets>
 		</PackageReference>
 	</ItemGroup>

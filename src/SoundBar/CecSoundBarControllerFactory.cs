@@ -1,17 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
 using Serilog.Events;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
+namespace PepperDash.Essentials.Plugins.SoundBar
 {
     public class CecSoundBarControllerFactory : EssentialsPluginDeviceFactory<CecSoundBarController>
     {
         public CecSoundBarControllerFactory()
         {
-			MinimumEssentialsFrameworkVersion = "2.0.0";
+			MinimumEssentialsFrameworkVersion = "3.0.0";
             TypeNames = new List<string> {"GenericCECSoundbar"};
         }
         public override EssentialsDevice BuildDevice(DeviceConfig dc)

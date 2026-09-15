@@ -1,6 +1,6 @@
-﻿using PepperDash.Essentials.Core.Bridges;
+using PepperDash.Essentials.Core.Bridges;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
+namespace PepperDash.Essentials.Plugins.SoundBar
 {
 	public class CecSoundBarControllerJoinMap : DisplayControllerJoinMap
 	{

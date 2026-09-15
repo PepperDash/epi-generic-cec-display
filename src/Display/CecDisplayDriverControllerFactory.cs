@@ -1,15 +1,16 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using PepperDash.Core;
+using Serilog.Events;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Config;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
+namespace PepperDash.Essentials.Plugins.Display
 {
     public class CecDisplayDriverControllerFactory : EssentialsPluginDeviceFactory<CecDisplayDriverDisplayController>
     {
         public CecDisplayDriverControllerFactory()
         {
-			MinimumEssentialsFrameworkVersion = "1.6.7";
+			MinimumEssentialsFrameworkVersion = "3.0.0";
             TypeNames = new List<string> {"GenericCecDisplay"};
         }
 
@@ -23,7 +24,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
 
             if (comms == null)
             {
-                Debug.Console(0, Debug.ErrorLogLevel.Error, "Unable to create comms for device {0}", dc.Key);
+                Debug.LogMessage(LogEventLevel.Error, "Unable to create comms for device {0}", dc.Key);
                 return null;
             }
 
@@ -41,7 +42,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.Display
                 );
             }
 
-            Debug.Console(0, Debug.ErrorLogLevel.Error, "Unable to deserialize config for device {0}", dc.Key);
+            Debug.LogMessage(LogEventLevel.Error, "Unable to deserialize config for device {0}", dc.Key);
             return null;
         }
 

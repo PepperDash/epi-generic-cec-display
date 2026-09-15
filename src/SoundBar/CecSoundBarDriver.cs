@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
@@ -8,7 +8,7 @@ using PepperDash.Core.Logging;
 using PepperDash.Essentials.Core;
 using Org.BouncyCastle.Utilities;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
+namespace PepperDash.Essentials.Plugins.SoundBar
 {
     public class CecSoundBarController : EssentialsDevice, ICommunicationMonitor, IHasPowerControlWithFeedback
     {
@@ -220,7 +220,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
             CommunicationMonitor.StatusChange += (sender, args) =>
             {
-                //Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
+                //this.LogDebug("Device status: {0}", CommunicationMonitor.Status);
                 
                 StatusFeedback.FireUpdate();
             };
@@ -238,11 +238,11 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         /// <returns></returns>
         /// */
         
-        public override bool CustomActivate()
+        protected override bool CustomActivate()
         {
             Communication.Connect();
             CommunicationMonitor.StatusChange +=
-                (o, a) => Debug.Console(2, this, "Communication monitor state: {0}", CommunicationMonitor.Status);
+                (o, a) => this.LogDebug("Communication monitor state: {0}", CommunicationMonitor.Status);
             CommunicationMonitor.Start();
             return true;
         }
@@ -286,8 +286,8 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             }
             catch (Exception ex)
             {
-                Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Exception parsing feedback: {0}", ex.Message));
-                Debug.LogError(Debug.ErrorLogLevel.Warning, String.Format("Stack trace: {0}", ex.StackTrace));
+                this.LogWarning("Exception parsing feedback: {0}", ex.Message);
+                this.LogWarning("Stack trace: {0}", ex.StackTrace);
             }
         }
 
@@ -338,7 +338,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
         private void Init()
         {
-            Debug.Console(2, this, "Initializing CEC Soundbar");
+            this.LogDebug("Initializing CEC Soundbar");
             InitCommMonitor();
         }
 
@@ -355,7 +355,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
 
             CommunicationMonitor.StatusChange += (sender, args) =>
             {
-                Debug.Console(2, this, "Device status: {0}", CommunicationMonitor.Status);
+                this.LogDebug("Device status: {0}", CommunicationMonitor.Status);
                 StatusFeedback.FireUpdate();
             };
         }
@@ -402,7 +402,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void PowerOn()
         {
             _isPoweringOnIgnorePowerFb = true;
-            Debug.Console(2, this, "CallingPowerOn");
+            this.LogDebug("CallingPowerOn");
 
             if (_powerOnUsesDiscreteCommand)
             {
@@ -428,7 +428,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         public void PowerOff()
         {
             _isPoweringOnIgnorePowerFb = false;
-            Debug.Console(2, this, "CallingPowerOff");
+            this.LogDebug("CallingPowerOff");
             // If a display has unreliable-power off feedback, just override this and
             // remove this check.
 
@@ -441,7 +441,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         
         public void PowerOnDiscrete()
         {
-            Debug.Console(2, this, "CallingPowerOnDiscrete");
+            this.LogDebug("CallingPowerOnDiscrete");
             //SendText(PowerOnHdmiCmd());
             SendBytes(PowerOnHdmiCmd());
         }
@@ -449,7 +449,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
         
         public void AddressGet()
         {
-            Debug.Console(2, this, "CallingGetAddress");
+            this.LogDebug("CallingGetAddress");
             //SendText("\x45\x83");
             SendBytes(GetDestinationID);
         }
@@ -466,7 +466,7 @@ namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
             }
             catch (Exception e)
             {
-                Debug.Console(0, this, "Exception Here - {0}", e.Message);
+                this.LogError("Exception Here - {0}", e.Message);
             }
         }
     }
