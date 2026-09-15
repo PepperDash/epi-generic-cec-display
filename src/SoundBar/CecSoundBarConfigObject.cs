@@ -1,7 +1,7 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 
-namespace PepperDash.Essentials.Plugin.Generic.Cec.SoundBar
+namespace PepperDash.Essentials.Plugins.SoundBar
 {
     public class CecSoundBarPropertiesConfig
     {
